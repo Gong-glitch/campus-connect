@@ -9,37 +9,45 @@ const store = useStore();
 const router = useRouter();
 const tab = ref("login");
 const error = ref("");
+const loading = ref(false);
 const showLoginPassword = ref(false);
 const showRegisterPassword = ref(false);
 const login = reactive({ email: "", password: "" });
 const register = reactive({ name: "", schoolId: "", email: "", password: "" });
 
-function submitLogin() {
+async function submitLogin() {
   error.value = "";
+  loading.value = true;
   login.email = sanitizeEmail(login.email);
   try {
     if (!isValidEmail(login.email) || !login.password) throw new Error("Enter a valid email and password.");
-    store.login(login.email, login.password, "user");
+    await store.login(login.email, login.password, "user");
     router.push("/home");
   } catch (err) {
     error.value = err.message;
+  } finally {
+    loading.value = false;
   }
 }
 
-function submitRegister() {
+async function submitRegister() {
   error.value = "";
+  loading.value = true;
   register.name = sanitizeText(register.name, 120);
   register.schoolId = sanitizeText(register.schoolId, 40);
   register.email = sanitizeEmail(register.email);
   if (!register.name || !isValidSchoolId(register.schoolId) || !isValidEmail(register.email) || !isStrongPassword(register.password)) {
     error.value = "School ID must be in format 211-00087. Password must be 8+ chars with uppercase, lowercase, and number.";
+    loading.value = false;
     return;
   }
   try {
-    store.register({ ...register });
+    await store.register({ ...register });
     router.push("/home");
   } catch (err) {
     error.value = err.message;
+  } finally {
+    loading.value = false;
   }
 }
 </script>
@@ -63,11 +71,11 @@ function submitRegister() {
           <button class="rounded-md px-4 py-2 font-semibold" :class="tab === 'register' ? 'bg-white text-primary shadow' : 'text-muted'" @click="tab = 'register'">Register</button>
         </div>
         <form v-if="tab === 'login'" class="mt-6 space-y-4" @submit.prevent="submitLogin">
-          <label class="block"><span class="label">School email</span><input v-model="login.email" class="field mt-1" type="email" /></label>
+          <label class="block"><span class="label">School email</span><input v-model="login.email" class="field mt-1" type="email" autocomplete="email" /></label>
           <label class="block">
             <span class="label">Password</span>
             <div class="relative mt-1">
-              <input v-model="login.password" class="field pr-11" :type="showLoginPassword ? 'text' : 'password'" />
+              <input v-model="login.password" class="field pr-11" :type="showLoginPassword ? 'text' : 'password'" autocomplete="current-password" />
               <button class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted hover:bg-light" type="button" @click="showLoginPassword = !showLoginPassword">
                 <EyeOff v-if="showLoginPassword" class="h-4 w-4" />
                 <Eye v-else class="h-4 w-4" />
@@ -75,17 +83,17 @@ function submitRegister() {
             </div>
           </label>
           <p v-if="error" class="text-sm text-danger">{{ error }}</p>
-          <button class="btn-primary w-full">Login</button>
+          <button class="btn-primary w-full" :disabled="loading">{{ loading ? "Logging in…" : "Login" }}</button>
           <RouterLink class="block text-center text-sm font-semibold text-primary" to="/admin">Admin login</RouterLink>
         </form>
         <form v-else class="mt-6 space-y-4" @submit.prevent="submitRegister">
-          <label class="block"><span class="label">Name</span><input v-model="register.name" class="field mt-1" /></label>
-          <label class="block"><span class="label">School ID</span><input v-model="register.schoolId" class="field mt-1" placeholder="211-00087" /></label>
-          <label class="block"><span class="label">School email</span><input v-model="register.email" class="field mt-1" type="email" /></label>
+          <label class="block"><span class="label">Name</span><input v-model="register.name" class="field mt-1" autocomplete="name" /></label>
+          <label class="block"><span class="label">School ID</span><input v-model="register.schoolId" class="field mt-1" placeholder="211-00087" autocomplete="off" /></label>
+          <label class="block"><span class="label">School email</span><input v-model="register.email" class="field mt-1" type="email" autocomplete="email" /></label>
           <label class="block">
             <span class="label">Password</span>
             <div class="relative mt-1">
-              <input v-model="register.password" class="field pr-11" :type="showRegisterPassword ? 'text' : 'password'" />
+              <input v-model="register.password" class="field pr-11" :type="showRegisterPassword ? 'text' : 'password'" autocomplete="new-password" />
               <button class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted hover:bg-light" type="button" @click="showRegisterPassword = !showRegisterPassword">
                 <EyeOff v-if="showRegisterPassword" class="h-4 w-4" />
                 <Eye v-else class="h-4 w-4" />
@@ -94,7 +102,7 @@ function submitRegister() {
             <span class="mt-1 block text-xs text-muted">At least 8 characters with uppercase, lowercase, and number.</span>
           </label>
           <p v-if="error" class="text-sm text-danger">{{ error }}</p>
-          <button class="btn-primary w-full">Create Account</button>
+          <button class="btn-primary w-full" :disabled="loading">{{ loading ? "Creating account…" : "Create Account" }}</button>
         </form>
       </div>
     </section>

@@ -8,67 +8,103 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    // 1. Register a new user account
+    public function hasAdmin()
+    {
+        return response()->json(['hasAdmin' => User::where('role', 'admin')->exists()]);
+    }
+
     public function register(Request $request)
     {
         $fields = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|unique:users,email',
-            'password' => 'required|string|min:6'
+            'name'      => 'required|string|max:255',
+            'school_id' => 'required|string|max:40',
+            'email'     => 'required|string|email|unique:users,email',
+            'password'  => 'required|string|min:8',
         ]);
 
         $user = User::create([
-            'name' => $fields['name'],
-            'email' => $fields['email'],
-            'password' => Hash::make($fields['password']) // Securely hashes the password
+            'name'      => $fields['name'],
+            'school_id' => $fields['school_id'],
+            'email'     => $fields['email'],
+            'password'  => $fields['password'],
+            'role'      => 'user',
         ]);
 
-        // Issue a secure token for the newly registered user
-        $token = $user->createToken('project_token')->plainTextToken;
+        $token = $user->createToken('app_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'User registered successfully!',
-            'user' => $user,
-            'token' => $token
-        ], 201);
+        return response()->json(['user' => $user, 'token' => $token], 201);
     }
 
-    // 2. Login an existing user and return a token
     public function login(Request $request)
     {
         $fields = $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string'
+            'email'    => 'required|string|email',
+            'password' => 'required|string',
+            'role'     => 'nullable|string|in:user,admin',
         ]);
 
-        // Find the user by email
         $user = User::where('email', $fields['email'])->first();
 
-        // Verify user exists and the password matches the hashed version in the database
         if (!$user || !Hash::check($fields['password'], $user->password)) {
-            return response()->json([
-                'message' => 'Invalid email or password.'
-            ], 401);
+            return response()->json(['message' => 'Invalid email or password.'], 401);
         }
 
-        // Generate a fresh security token
-        $token = $user->createToken('project_token')->plainTextToken;
+        $requestedRole = $fields['role'] ?? 'user';
+        if ($user->role !== $requestedRole) {
+            return response()->json(['message' => 'Invalid credentials for this role.'], 401);
+        }
 
-        return response()->json([
-            'message' => 'Login successful!',
-            'user' => $user,
-            'token' => $token
-        ], 200);
+        $token = $user->createToken('app_token')->plainTextToken;
+
+        return response()->json(['user' => $user, 'token' => $token], 200);
     }
 
-    // 3. Logout the user (Revoke/Destroy their active token)
+    public function setupAdmin(Request $request)
+    {
+        if (User::where('role', 'admin')->exists()) {
+            return response()->json(['message' => 'Admin account already exists.'], 409);
+        }
+
+        $fields = $request->validate([
+            'name'      => 'required|string|max:255',
+            'school_id' => 'required|string|max:40',
+            'email'     => 'required|string|email|unique:users,email',
+            'password'  => 'required|string|min:8',
+        ]);
+
+        User::create([
+            'name'      => $fields['name'],
+            'school_id' => $fields['school_id'],
+            'email'     => $fields['email'],
+            'password'  => $fields['password'],
+            'role'      => 'admin',
+        ]);
+
+        return response()->json(['message' => 'Admin account created.'], 201);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $fields = $request->validate([
+            'current_password' => 'required|string',
+            'new_password'     => 'required|string|min:8',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($fields['current_password'], $user->password)) {
+            return response()->json(['message' => 'Current password is incorrect.'], 422);
+        }
+
+        $user->password = $fields['new_password'];
+        $user->save();
+
+        return response()->json(['message' => 'Password updated successfully.']);
+    }
+
     public function logout(Request $request)
     {
-        // Delete the token that was used to gain access to this request
         $request->user()->currentAccessToken()->delete();
-
-        return response()->json([
-            'message' => 'Logged out successfully.'
-        ], 200);
+        return response()->json(['message' => 'Logged out successfully.']);
     }
 }

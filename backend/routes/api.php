@@ -2,25 +2,19 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\StudentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ItemController;
 
-// 🔓 PUBLIC ROUTES: Anyone can access these to get a token
+// Public routes
+Route::get('/has-admin', [AuthController::class, 'hasAdmin']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::post('/setup-admin', [AuthController::class, 'setupAdmin']);
 
-// 🔒 PROTECTED ROUTES: You MUST have a valid token to access these
+// Protected routes
 Route::middleware('auth:sanctum')->group(function () {
-    
-    // Default route to check who is currently logged in
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
-    // Your new Lost & Found routes!
-    Route::apiResource('items', ItemController::class);
-    
-    // Route to destroy the token
+    Route::get('/user', fn(Request $request) => $request->user());
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/password', [AuthController::class, 'changePassword']);
+    Route::apiResource('items', ItemController::class);
 });

@@ -9,6 +9,7 @@ import {
   sanitizeReportPayload,
   sanitizeText
 } from "../utils/inputProtection";
+import { api, getToken, setToken } from "../services/api";
 
 const STORAGE_KEY = "campus-lost-found-csu-v2";
 
@@ -60,11 +61,10 @@ const initialData = {
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
-    return initialData;
-  }
-  return { ...initialData, ...JSON.parse(raw) };
+  const base = raw ? { ...initialData, ...JSON.parse(raw) } : { ...initialData };
+  if (base.session && !getToken()) base.session = null;
+  if (!raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
+  return base;
 }
 
 export function createAppStore() {
@@ -101,44 +101,77 @@ export function createAppStore() {
   const store = {
     state,
     persist,
-    login(email, password, role = "user") {
-      const cleanEmail = sanitizeEmail(email);
-      const cleanPassword = String(password ?? "");
-      const user = state.users.find((item) => item.email === cleanEmail && item.password === cleanPassword && item.role === role);
-      if (!user) throw new Error("Invalid credentials for this role.");
-      state.session = { id: user.id, name: user.name, email: user.email, schoolId: user.schoolId, role: user.role };
+
+    async login(email, password, role = "user") {
+      const data = await api.post("/login", {
+        email: sanitizeEmail(email),
+        password: String(password ?? ""),
+        role
+      });
+      setToken(data.token);
+      state.session = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        schoolId: data.user.school_id,
+        role: data.user.role
+      };
       persist();
     },
-    register(payload) {
+
+    async register(payload) {
       const clean = sanitizeRegisterPayload(payload);
-      if (!clean.name || !isValidSchoolId(clean.schoolId) || !isValidEmail(clean.email) || !isStrongPassword(clean.password)) {
-        throw new Error("Invalid registration details.");
+      if (!clean.name || !isValidSchoolId(clean.schoolId) || !isValidEmail(clean.email) || !isStrongPassword(payload.password)) {
+        throw new Error("School ID must be in format 211-00087. Password must be 8+ chars with uppercase, lowercase, and number.");
       }
-      if (state.users.some((user) => user.email === clean.email)) throw new Error("Email already exists.");
-      const user = { id: crypto.randomUUID(), ...clean, role: "user", status: "Active", joinDate: new Date().toISOString().slice(0, 10) };
-      state.users.push(user);
-      state.session = { id: user.id, name: user.name, email: user.email, schoolId: user.schoolId, role: "user" };
-      addActivity(`${user.name} registered`);
+      const data = await api.post("/register", {
+        name: clean.name,
+        school_id: clean.schoolId,
+        email: clean.email,
+        password: payload.password
+      });
+      setToken(data.token);
+      state.session = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        schoolId: data.user.school_id,
+        role: data.user.role
+      };
+      addActivity(`${data.user.name} registered`);
       persist();
     },
-    createAdmin(payload) {
-      if (state.users.some((u) => u.role === "admin")) throw new Error("An admin account already exists.");
-      const name = sanitizeText(payload.name, 120);
-      const schoolId = sanitizeText(payload.schoolId, 40);
-      const email = sanitizeEmail(payload.email);
-      const password = String(payload.password ?? "");
-      if (!name || !isValidSchoolId(schoolId) || !isValidEmail(email) || !isStrongPassword(password)) {
-        throw new Error("Invalid admin details.");
-      }
-      const user = { id: crypto.randomUUID(), name, schoolId, email, password, role: "admin", status: "Active", joinDate: new Date().toISOString().slice(0, 10) };
-      state.users.push(user);
-      addActivity(`Admin account created for ${name}`);
+
+    async createAdmin(payload) {
+      await api.post("/setup-admin", {
+        name: sanitizeText(payload.name, 120),
+        school_id: sanitizeText(payload.schoolId, 40),
+        email: sanitizeEmail(payload.email),
+        password: payload.password
+      });
+      addActivity("Admin account created");
       persist();
     },
-    logout() {
+
+    async logout() {
+      try { await api.post("/logout"); } catch (_) {}
+      setToken(null);
       state.session = null;
       persist();
     },
+
+    async changeAdminPassword(currentPassword, newPassword) {
+      if (!isStrongPassword(String(newPassword ?? ""))) {
+        throw new Error("New password must be at least 8 characters with uppercase, lowercase, and a number.");
+      }
+      await api.put("/password", {
+        current_password: String(currentPassword ?? ""),
+        new_password: String(newPassword ?? "")
+      });
+      addActivity("Admin password changed");
+      persist();
+    },
+
     addLostReport(payload) {
       const clean = sanitizeReportPayload(payload);
       if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
@@ -149,6 +182,7 @@ export function createAppStore() {
       addActivity(`${clean.name} lost report submitted`);
       return report.id;
     },
+
     addFoundReport(payload) {
       const clean = sanitizeReportPayload(payload);
       if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
@@ -159,6 +193,7 @@ export function createAppStore() {
       addActivity(`${clean.name} found report submitted for approval`);
       return report.id;
     },
+
     updateReport(type, id, payload) {
       const list = type === "lost" ? state.lostReports : state.foundReports;
       const index = list.findIndex((item) => item.id === id);
@@ -174,11 +209,13 @@ export function createAppStore() {
       }
       persist();
     },
+
     deleteReport(type, id) {
       const key = type === "lost" ? "lostReports" : "foundReports";
       state[key] = state[key].filter((item) => item.id !== id);
       persist();
     },
+
     submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       if (!clean.claimantName || !isValidSchoolId(clean.schoolId) || !isValidEmail(clean.contactEmail) || clean.proof.length < 10) {
@@ -187,6 +224,7 @@ export function createAppStore() {
       state.claims.unshift({ id: crypto.randomUUID(), ...clean, date: new Date().toISOString().slice(0, 10), status: "Pending", note: "" });
       addActivity(`${clean.claimantName} submitted a claim for ${clean.itemName}`);
     },
+
     addFoundItem(payload) {
       const clean = sanitizeReportPayload(payload);
       if (!clean.name || !clean.description || !clean.date) {
@@ -200,6 +238,7 @@ export function createAppStore() {
       });
       addActivity(`${clean.name} added by admin`);
     },
+
     approveFoundReport(id) {
       const report = state.foundReports.find((item) => item.id === id);
       if (!report) return;
@@ -214,6 +253,7 @@ export function createAppStore() {
       addActivity(`${report.name} approved and posted`);
       persist();
     },
+
     rejectFoundReport(id) {
       const report = state.foundReports.find((item) => item.id === id);
       if (!report) return;
@@ -222,6 +262,7 @@ export function createAppStore() {
       addActivity(`${report.name} rejected`);
       persist();
     },
+
     updateFoundItem(id, payload) {
       const index = state.foundItems.findIndex((item) => item.id === id);
       if (index >= 0) {
@@ -232,10 +273,12 @@ export function createAppStore() {
       }
       persist();
     },
+
     deleteFoundItem(id) {
       state.foundItems = state.foundItems.filter((item) => item.id !== id);
       persist();
     },
+
     updateClaim(id, status, note = "") {
       const claim = state.claims.find((item) => item.id === id);
       if (!claim) return;
@@ -247,6 +290,7 @@ export function createAppStore() {
       }
       addActivity(`${claim.itemName} claim ${status.toLowerCase()}`);
     },
+
     updateUser(id, payload) {
       const index = state.users.findIndex((item) => item.id === id);
       if (index >= 0) {
@@ -258,19 +302,12 @@ export function createAppStore() {
       }
       persist();
     },
+
     deleteUser(id) {
       state.users = state.users.filter((item) => item.id !== id);
       persist();
     },
-    changeAdminPassword(currentPassword, newPassword) {
-      const admin = state.users.find((u) => u.role === "admin" && u.id === state.session?.id);
-      if (!admin) throw new Error("No admin session found.");
-      if (admin.password !== String(currentPassword ?? "")) throw new Error("Current password is incorrect.");
-      if (!isStrongPassword(String(newPassword ?? ""))) throw new Error("New password must be at least 8 characters with uppercase, lowercase, and a number.");
-      admin.password = String(newPassword);
-      addActivity("Admin password changed");
-      persist();
-    },
+
     saveSettings(settings) {
       state.settings = { ...state.settings, ...settings };
       addActivity("Settings updated");

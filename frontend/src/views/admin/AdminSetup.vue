@@ -4,23 +4,26 @@ import { useRouter } from "vue-router";
 import { useStore } from "../../composables/useStore";
 import { Eye, EyeOff, ShieldCheck } from "lucide-vue-next";
 import { isValidEmail, isValidSchoolId, isStrongPassword, sanitizeEmail, sanitizeText } from "../../utils/inputProtection";
+import { api } from "../../services/api";
 
 const store = useStore();
 const router = useRouter();
 const error = ref("");
+const loading = ref(false);
 const success = ref(false);
 const showPassword = ref(false);
 const showConfirm = ref(false);
 
 const form = reactive({ name: "", schoolId: "", email: "", password: "", confirm: "" });
 
-onMounted(() => {
-  if (store.state.users.some((u) => u.role === "admin")) {
-    router.replace("/admin");
-  }
+onMounted(async () => {
+  try {
+    const data = await api.get("/has-admin");
+    if (data.hasAdmin) router.replace("/admin");
+  } catch (_) {}
 });
 
-function submit() {
+async function submit() {
   error.value = "";
   form.name = sanitizeText(form.name, 120);
   form.schoolId = sanitizeText(form.schoolId, 40);
@@ -32,12 +35,15 @@ function submit() {
   if (!isStrongPassword(form.password)) { error.value = "Password must be at least 8 characters with uppercase, lowercase, and a number."; return; }
   if (form.password !== form.confirm) { error.value = "Passwords do not match."; return; }
 
+  loading.value = true;
   try {
-    store.createAdmin({ name: form.name, schoolId: form.schoolId, email: form.email, password: form.password });
+    await store.createAdmin({ name: form.name, schoolId: form.schoolId, email: form.email, password: form.password });
     success.value = true;
     setTimeout(() => router.push("/admin"), 2000);
   } catch (err) {
     error.value = err.message;
+  } finally {
+    loading.value = false;
   }
 }
 </script>
@@ -99,7 +105,9 @@ function submit() {
 
           <p v-if="error" class="text-sm text-danger">{{ error }}</p>
 
-          <button class="btn-primary w-full" type="submit">Create Admin Account</button>
+          <button class="btn-primary w-full" type="submit" :disabled="loading">
+            {{ loading ? "Creating account…" : "Create Admin Account" }}
+          </button>
         </div>
       </form>
     </div>

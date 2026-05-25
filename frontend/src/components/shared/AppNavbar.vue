@@ -26,8 +26,8 @@ const adminLinks = [
   ["/admin/settings", "Settings"]
 ];
 
-function logout() {
-  store.logout();
+async function logout() {
+  await store.logout();
   router.push(props.role === "admin" ? "/admin" : "/login");
 }
 </script>
