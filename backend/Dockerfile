@@ -22,8 +22,17 @@ COPY . .
 # Install Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Configure Apache
-RUN sed -i 's|/var/www/html|/var/web/public|g' /etc/apache2/sites-available/000-default.conf
+# 🟢 Configure Apache with Explicit Global Directory Access Permissions
+RUN echo '<VirtualHost *:80>\n\
+    DocumentRoot /var/web/public\n\
+    <Directory "/var/web/public">\n\
+        Options Indexes FollowSymLinks MultiViews\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+
+# Enable Apache rewrite module
 RUN a2enmod rewrite
 
 EXPOSE 80
