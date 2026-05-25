@@ -1,4 +1,4 @@
-const BASE = "/api";
+const BASE = "https://campus-connect-api-0s3b.onrender.com/api";
 const TOKEN_KEY = "campus-auth-token";
 
 export function getToken() {
