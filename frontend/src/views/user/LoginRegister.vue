@@ -11,7 +11,7 @@ const tab = ref("login");
 const error = ref("");
 const showLoginPassword = ref(false);
 const showRegisterPassword = ref(false);
-const login = reactive({ email: "ana@carsu.edu.ph", password: "password" });
+const login = reactive({ email: "", password: "" });
 const register = reactive({ name: "", schoolId: "", email: "", password: "" });
 
 function submitLogin() {

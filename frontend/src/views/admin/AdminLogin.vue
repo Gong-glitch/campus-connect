@@ -7,7 +7,7 @@ import { isValidEmail, sanitizeEmail } from "../../utils/inputProtection";
 const store = useStore();
 const router = useRouter();
 const error = ref("");
-const form = reactive({ email: "admin@carsu.edu.ph", password: "admin123" });
+const form = reactive({ email: "", password: "" });
 
 function login() {
   try {

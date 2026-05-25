@@ -10,7 +10,7 @@ import {
   sanitizeText
 } from "../utils/inputProtection";
 
-const STORAGE_KEY = "campus-lost-found-csu";
+const STORAGE_KEY = "campus-lost-found-csu-v2";
 
 const categories = ["Electronics", "Keys", "ID", "Clothing", "Bag", "Others"];
 const locations = ["Main Campus Gate", "CCIS Building", "Library", "Gymnasium", "Cafeteria", "Registrar", "Student Center"];
@@ -42,26 +42,11 @@ const foundItems = [
 
 const initialData = {
   session: null,
-  users: [
-    { id: "user-1", name: "Ana Reyes", schoolId: "211-00087", email: "ana@carsu.edu.ph", password: "password", role: "user", status: "Active", joinDate: "2026-01-15" },
-    { id: "user-2", name: "Marco Lim", schoolId: "212-00145", email: "marco@carsu.edu.ph", password: "password", role: "user", status: "Active", joinDate: "2026-02-08" },
-    { id: "user-3", name: "Leah Cruz", schoolId: "213-00320", email: "leah@carsu.edu.ph", password: "password", role: "user", status: "Active", joinDate: "2026-03-11" },
-    { id: "user-4", name: "Admin Office", schoolId: "999-00001", email: "admin@carsu.edu.ph", password: "admin123", role: "admin", status: "Active", joinDate: "2025-12-01" }
-  ],
+  users: [],
   foundItems,
-  lostReports: [
-    { id: "lost-1", name: "Lenovo Charger", category: "Electronics", location: "CCIS Building", date: "2026-05-15", status: "Open", contactEmail: "ana@carsu.edu.ph", description: "USB-C laptop charger left after class.", ownerEmail: "ana@carsu.edu.ph" },
-    { id: "lost-2", name: "PE Shoes", category: "Clothing", location: "Gymnasium", date: "2026-05-16", status: "Open", contactEmail: "marco@carsu.edu.ph", description: "Black training shoes in a white bag.", ownerEmail: "marco@carsu.edu.ph" },
-    { id: "lost-3", name: "Library Card", category: "ID", location: "Library", date: "2026-05-17", status: "Matched", contactEmail: "leah@carsu.edu.ph", description: "Library borrower card.", ownerEmail: "leah@carsu.edu.ph" },
-    { id: "lost-4", name: "Dorm Keys", category: "Keys", location: "Student Center", date: "2026-05-18", status: "Open", contactEmail: "ana@carsu.edu.ph", description: "Two keys with green keychain.", ownerEmail: "ana@carsu.edu.ph" },
-    { id: "lost-5", name: "Canvas Tote Bag", category: "Bag", location: "Cafeteria", date: "2026-05-19", status: "Archived", contactEmail: "marco@carsu.edu.ph", description: "Cream tote with notebooks.", ownerEmail: "marco@carsu.edu.ph" }
-  ],
+  lostReports: [],
   foundReports: [],
-  claims: [
-    { id: "claim-1", claimantName: "Ana Reyes", schoolId: "211-00087", contactEmail: "ana@carsu.edu.ph", itemId: "found-2", itemName: "Student ID Card", proof: "The ID number and course match my record.", date: "2026-05-20", status: "Pending", note: "" },
-    { id: "claim-2", claimantName: "Marco Lim", schoolId: "212-00145", contactEmail: "marco@carsu.edu.ph", itemId: "found-5", itemName: "House Keys", proof: "The keychain has my initials.", date: "2026-05-19", status: "Approved", note: "" },
-    { id: "claim-3", claimantName: "Leah Cruz", schoolId: "213-00320", contactEmail: "leah@carsu.edu.ph", itemId: "found-10", itemName: "Wallet", proof: "Contains my student receipt.", date: "2026-05-21", status: "Pending", note: "" }
-  ],
+  claims: [],
   settings: {
     categories,
     locations,
@@ -70,11 +55,7 @@ const initialData = {
     announcementEnabled: true,
     announcementText: "Claim found items at the student affairs office with a valid ID."
   },
-  activity: [
-    { id: "act-1", text: "Student ID card claim submitted", time: "Today, 9:15 AM" },
-    { id: "act-2", text: "House Keys marked as claimed", time: "Yesterday, 3:40 PM" },
-    { id: "act-3", text: "Scientific Calculator added to found items", time: "May 20, 2026" }
-  ]
+  activity: []
 };
 
 function loadState() {
