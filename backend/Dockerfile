@@ -1,11 +1,14 @@
 FROM php:8.2-apache
 
-# Install system dependencies and PostgreSQL support
+# Install system dependencies and required PHP extensions
 RUN apt-get update && apt-get install -y \
     libpq-dev \
+    libpng-dev \
+    libzip-dev \
+    libxml2-dev \
     git \
     unzip \
-    && docker-php-ext-install pdo pdo_pgsql
+    && docker-php-ext-install pdo pdo_pgsql gd zip xml
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
