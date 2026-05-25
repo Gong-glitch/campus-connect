@@ -22,7 +22,7 @@ COPY . .
 # Install Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# 🟢 Configure Apache with Explicit Global Directory Access Permissions
+# Configure Apache with Explicit Global Directory Access Permissions
 RUN echo '<VirtualHost *:80>\n\
     DocumentRoot /var/web/public\n\
     <Directory "/var/web/public">\n\
@@ -34,6 +34,10 @@ RUN echo '<VirtualHost *:80>\n\
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
+
+# 🟢 FIX: Grant read/write permissions to Apache for Laravel storage and cache directories
+RUN chown -R www-data:www-data /var/web/storage /var/web/bootstrap/cache \
+    && chmod -R 775 /var/web/storage /var/web/bootstrap/cache
 
 EXPOSE 80
 CMD ["apache2-foreground"]
