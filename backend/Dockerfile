@@ -40,4 +40,4 @@ RUN chown -R www-data:www-data /var/web/storage /var/web/bootstrap/cache \
     && chmod -R 775 /var/web/storage /var/web/bootstrap/cache
 
 EXPOSE 80
-CMD ["apache2-foreground"]
+CMD php artisan config:clear && php artisan cache:clear && apache2-foreground
