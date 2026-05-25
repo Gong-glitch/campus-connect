@@ -262,6 +262,15 @@ export function createAppStore() {
       state.users = state.users.filter((item) => item.id !== id);
       persist();
     },
+    changeAdminPassword(currentPassword, newPassword) {
+      const admin = state.users.find((u) => u.role === "admin" && u.id === state.session?.id);
+      if (!admin) throw new Error("No admin session found.");
+      if (admin.password !== String(currentPassword ?? "")) throw new Error("Current password is incorrect.");
+      if (!isStrongPassword(String(newPassword ?? ""))) throw new Error("New password must be at least 8 characters with uppercase, lowercase, and a number.");
+      admin.password = String(newPassword);
+      addActivity("Admin password changed");
+      persist();
+    },
     saveSettings(settings) {
       state.settings = { ...state.settings, ...settings };
       addActivity("Settings updated");
