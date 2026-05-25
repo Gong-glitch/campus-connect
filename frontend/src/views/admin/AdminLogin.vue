@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from "vue";
+import { reactive, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "../../composables/useStore";
 import { isValidEmail, sanitizeEmail } from "../../utils/inputProtection";
@@ -8,6 +8,12 @@ const store = useStore();
 const router = useRouter();
 const error = ref("");
 const form = reactive({ email: "", password: "" });
+
+onMounted(() => {
+  if (!store.state.users.some((u) => u.role === "admin")) {
+    router.replace("/admin/setup");
+  }
+});
 
 function login() {
   try {

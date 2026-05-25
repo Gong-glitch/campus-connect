@@ -3,6 +3,7 @@ import AdminClaims from "../views/admin/AdminClaims.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminItems from "../views/admin/AdminItems.vue";
 import AdminLogin from "../views/admin/AdminLogin.vue";
+import AdminSetup from "../views/admin/AdminSetup.vue";
 import AdminLostReports from "../views/admin/AdminLostReports.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 import AdminUsers from "../views/admin/AdminUsers.vue";
@@ -26,6 +27,7 @@ export const router = createRouter({
     { path: "/report-found", component: ReportFound },
     { path: "/my-reports", component: MyReports },
     { path: "/admin", component: AdminLogin },
+    { path: "/admin/setup", component: AdminSetup },
     { path: "/admin/dashboard", component: AdminDashboard },
     { path: "/admin/items", component: AdminItems },
     { path: "/admin/lost-reports", component: AdminLostReports },

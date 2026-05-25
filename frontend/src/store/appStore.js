@@ -121,6 +121,20 @@ export function createAppStore() {
       addActivity(`${user.name} registered`);
       persist();
     },
+    createAdmin(payload) {
+      if (state.users.some((u) => u.role === "admin")) throw new Error("An admin account already exists.");
+      const name = sanitizeText(payload.name, 120);
+      const schoolId = sanitizeText(payload.schoolId, 40);
+      const email = sanitizeEmail(payload.email);
+      const password = String(payload.password ?? "");
+      if (!name || !isValidSchoolId(schoolId) || !isValidEmail(email) || !isStrongPassword(password)) {
+        throw new Error("Invalid admin details.");
+      }
+      const user = { id: crypto.randomUUID(), name, schoolId, email, password, role: "admin", status: "Active", joinDate: new Date().toISOString().slice(0, 10) };
+      state.users.push(user);
+      addActivity(`Admin account created for ${name}`);
+      persist();
+    },
     logout() {
       state.session = null;
       persist();
