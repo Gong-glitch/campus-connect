@@ -1,22 +1,12 @@
 <script setup>
 import { computed, onMounted } from "vue";
 import { CheckCircle, ClipboardList, Package, Users } from "lucide-vue-next";
-
-// 🚀 FIXED: Standard explicit relative depths matching your project structure
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ActivityFeed from "../../components/shared/ActivityFeed.vue";
 import DashboardCard from "../../components/shared/DashboardCard.vue";
 import { useStore } from "../../composables/useStore";
 
-const store = useStore();
-const { state } = store;
-
-const totalItems = computed(() => state.foundItems.length);
-const unclaimed = computed(() => state.foundItems.filter((i) => i.status === "Unclaimed").length);
-const pendingClaims = computed(() => state.claims.filter((c) => c.status === "Pending").length);
-const resolved = computed(() => state.foundItems.filter((i) => i.status === "Claimed").length);
-
-onMounted(() => store.fetchItems());
+const { state } = useStore();
 </script>
 
 <template>
@@ -24,10 +14,10 @@ onMounted(() => store.fetchItems());
   <main class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
     <h1 class="text-3xl font-bold text-dark">Admin Dashboard</h1>
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <DashboardCard :icon="Package" :number="totalItems" label="Total Found Items" />
-      <DashboardCard :icon="ClipboardList" :number="unclaimed" label="Unclaimed" />
-      <DashboardCard :icon="Users" :number="pendingClaims" label="Pending Claims" />
-      <DashboardCard :icon="CheckCircle" :number="resolved" label="Resolved This Month" />
+      <DashboardCard :icon="Package" :number="state.foundItems.length" label="Total Found Items" />
+      <DashboardCard :icon="ClipboardList" :number="state.foundItems.filter((i) => i.status === 'Unclaimed').length" label="Unclaimed" />
+      <DashboardCard :icon="Users" :number="state.claims.filter((c) => c.status === 'Pending').length" label="Pending Claims" />
+      <DashboardCard :icon="CheckCircle" :number="state.foundItems.filter((i) => i.status === 'Claimed').length" label="Resolved This Month" />
     </section>
     <section class="grid gap-6 lg:grid-cols-[1fr_360px]">
       <ActivityFeed :items="state.activity" />
