@@ -3,6 +3,7 @@ import AdminClaims from "../views/admin/AdminClaims.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminItems from "../views/admin/AdminItems.vue";
 import AdminLogin from "../views/admin/AdminLogin.vue";
+import AdminSetup from "../views/admin/AdminSetup.vue"; // 🚀 ADDED IMPORT
 import AdminLostReports from "../views/admin/AdminLostReports.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 import AdminUsers from "../views/admin/AdminUsers.vue";
@@ -25,7 +26,9 @@ export const router = createRouter({
     { path: "/report-lost", component: ReportLost },
     { path: "/report-found", component: ReportFound },
     { path: "/my-reports", component: MyReports },
-    { path: "/admin", component: AdminLogin },
+    { path: "/admin", redirect: "/admin/login" }, // 🚀 REDIRECT /admin to /admin/login cleanly
+    { path: "/admin/login", component: AdminLogin }, // 🚀 EXPLICIT LOGIN ROUTE
+    { path: "/admin/setup", component: AdminSetup }, // 🚀 FIXED: Added the missing setup route mapping!
     { path: "/admin/dashboard", component: AdminDashboard },
     { path: "/admin/items", component: AdminItems },
     { path: "/admin/lost-reports", component: AdminLostReports },
