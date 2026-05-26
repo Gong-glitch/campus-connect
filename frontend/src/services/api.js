@@ -1,7 +1,7 @@
 // Use a relative base so all requests flow through the Vite proxy
 // (/api → http://127.0.0.1:8000) instead of hitting an external server.
 
-// Change this line from "/api" to point to your live backend domain:
+// ✅ Fixed: Ensure the base points to your live backend domain
 const BASE = "https://campus-connect-3s6n.onrender.com/api";
 const TOKEN_KEY = "campus-auth-token";
 
@@ -21,11 +21,17 @@ async function request(method, path, body) {
   };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, {
+
+  // 🧽 Clean up route slashes automatically to prevent URL corruption
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const targetUrl = `${BASE}${cleanPath}`;
+
+  const res = await fetch(targetUrl, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok)
     throw new Error(data.message || `Request failed (${res.status}).`);
@@ -45,6 +51,8 @@ export const api = {
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const body = new FormData();
     body.append("image", file);
+
+    // Ensure the upload sub-path formats perfectly too
     const res = await fetch(`${BASE}/upload`, {
       method: "POST",
       headers,
