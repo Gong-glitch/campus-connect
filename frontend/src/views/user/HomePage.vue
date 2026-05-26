@@ -1,11 +1,13 @@
 <script setup>
-import { computed, reactive } from "vue";
+import { computed, reactive, onMounted } from "vue";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ItemCard from "../../components/shared/ItemCard.vue";
 import { useStore } from "../../composables/useStore";
 
-const { state } = useStore();
+const store = useStore();
+const { state } = store;
 const filters = reactive({ search: "", category: "All" });
+
 const items = computed(() =>
   state.foundItems.filter((item) => {
     const matchesSearch = !filters.search || item.name.toLowerCase().includes(filters.search.toLowerCase());
@@ -13,6 +15,11 @@ const items = computed(() =>
     return matchesSearch && matchesCategory;
   })
 );
+
+const totalItems = computed(() => state.foundItems.length);
+const recoveredItems = computed(() => state.foundItems.filter((i) => i.status === "Claimed").length);
+
+onMounted(() => store.fetchItems());
 </script>
 
 <template>
@@ -42,8 +49,8 @@ const items = computed(() =>
       </div>
     </section>
     <section class="grid gap-4 rounded-md bg-white p-5 shadow-soft sm:grid-cols-2">
-      <p><span class="text-2xl font-bold text-primary">{{ state.foundItems.length }}</span><br /><span class="text-sm text-muted">items this month</span></p>
-      <p><span class="text-2xl font-bold text-primary">{{ state.foundItems.filter((i) => i.status === 'Claimed').length }}</span><br /><span class="text-sm text-muted">recovered items</span></p>
+      <p><span class="text-2xl font-bold text-primary">{{ totalItems }}</span><br /><span class="text-sm text-muted">items this month</span></p>
+      <p><span class="text-2xl font-bold text-primary">{{ recoveredItems }}</span><br /><span class="text-sm text-muted">recovered items</span></p>
     </section>
     <section>
       <h2 class="mb-4 text-2xl font-bold text-dark">Found items</h2>

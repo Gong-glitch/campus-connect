@@ -1,18 +1,22 @@
 <script setup>
-import { computed, reactive } from "vue";
+import { computed, reactive, onMounted } from "vue";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import FilterSidebar from "../../components/shared/FilterSidebar.vue";
 import ItemCard from "../../components/shared/ItemCard.vue";
 import { useStore } from "../../composables/useStore";
 
-const { state } = useStore();
+const store = useStore();
+const { state } = store;
 const filters = reactive({ category: "All", location: "All", from: "", to: "" });
+
 const items = computed(() => state.foundItems.filter((item) =>
   (filters.category === "All" || item.category === filters.category) &&
   (filters.location === "All" || item.location === filters.location) &&
   (!filters.from || item.date >= filters.from) &&
   (!filters.to || item.date <= filters.to)
 ));
+
+onMounted(() => store.fetchItems());
 </script>
 
 <template>

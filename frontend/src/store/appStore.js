@@ -16,35 +16,9 @@ const STORAGE_KEY = "campus-lost-found-csu-v2";
 const categories = ["Electronics", "Keys", "ID", "Clothing", "Bag", "Others"];
 const locations = ["Main Campus Gate", "CCIS Building", "Library", "Gymnasium", "Cafeteria", "Registrar", "Student Center"];
 
-const foundItems = [
-  ["found-1", "Scientific Calculator", "Electronics", "CCIS Building", "Unclaimed"],
-  ["found-2", "Student ID Card", "ID", "Library", "Unclaimed"],
-  ["found-3", "Black Backpack", "Bag", "Student Center", "Pending"],
-  ["found-4", "Silver USB Drive", "Electronics", "Computer Lab", "Unclaimed"],
-  ["found-5", "House Keys", "Keys", "Cafeteria", "Claimed"],
-  ["found-6", "Green Jacket", "Clothing", "Gymnasium", "Unclaimed"],
-  ["found-7", "Wireless Earbuds", "Electronics", "Main Campus Gate", "Unclaimed"],
-  ["found-8", "Blue Umbrella", "Others", "Registrar", "Claimed"],
-  ["found-9", "Notebook Set", "Others", "Library", "Unclaimed"],
-  ["found-10", "Wallet", "Others", "Cafeteria", "Pending"],
-  ["found-11", "Motorcycle Key", "Keys", "Parking Area", "Unclaimed"],
-  ["found-12", "PE Uniform Shirt", "Clothing", "Gymnasium", "Unclaimed"]
-].map(([id, name, category, location, status], index) => ({
-  id,
-  name,
-  category,
-  location,
-  status,
-  reportedBy: index % 2 ? "Security Office" : "Student Affairs",
-  date: `2026-05-${String(10 + index).padStart(2, "0")}`,
-  description: `${name} was turned over to the lost and found desk. Claimants must provide proof of ownership.`,
-  photo: `https://placehold.co/640x420/e8f5ee/1b6b3a?text=${encodeURIComponent(name)}`
-}));
-
 const initialData = {
   session: null,
   users: [],
-  foundItems,
   lostReports: [],
   foundReports: [],
   claims: [],
@@ -61,20 +35,41 @@ const initialData = {
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  const base = raw ? { ...initialData, ...JSON.parse(raw) } : { ...initialData };
+  const saved = raw ? JSON.parse(raw) : null;
+  // foundItems is intentionally excluded from persistence — always fetched live from the API
+  const base = saved ? { ...initialData, ...saved } : { ...initialData };
   if (base.session && !getToken()) base.session = null;
+  // Strip any stale foundItems that may have been saved by an older version
+  delete base.foundItems;
   if (!raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
   return base;
 }
 
+function mapItem(raw) {
+  return {
+    id: String(raw.id),
+    name: raw.title ?? raw.name ?? "",
+    category: raw.category ?? "",
+    location: raw.location ?? "",
+    status: raw.status ?? "Unclaimed",
+    description: raw.description ?? "",
+    photo: raw.image_path || `https://placehold.co/640x420/e8f5ee/1b6b3a?text=${encodeURIComponent(raw.title ?? raw.name ?? "Item")}`,
+    reportedBy: raw.user?.name ?? "Admin",
+    date: (raw.created_at ?? raw.date ?? "").slice(0, 10),
+    contactEmail: raw.contactEmail ?? ""
+  };
+}
+
 export function createAppStore() {
-  const state = reactive(loadState());
+  const state = reactive({ ...loadState(), foundItems: [] });
   state.foundReports = state.foundReports.map((report) =>
     report.status === "Pending" ? { ...report, status: "Pending Approval" } : report
   );
 
   function persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // Explicitly exclude foundItems — it must always be fetched fresh from the API
+    const { foundItems: _ignored, ...toSave } = JSON.parse(JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   }
 
   function addActivity(text) {
@@ -101,6 +96,20 @@ export function createAppStore() {
   const store = {
     state,
     persist,
+
+    async fetchItems() {
+      try {
+        const raw = await api.get("/items");
+        state.foundItems = raw.map(mapItem);
+      } catch (_) {
+        // Leave foundItems as-is on error (empty on first load, stale on retry)
+      }
+    },
+
+    async fetchItem(id) {
+      const raw = await api.get(`/items/${id}`);
+      return mapItem(raw);
+    },
 
     async login(email, password, role = "user") {
       const data = await api.post("/login", {
@@ -157,6 +166,7 @@ export function createAppStore() {
       try { await api.post("/logout"); } catch (_) {}
       setToken(null);
       state.session = null;
+      state.foundItems = [];
       persist();
     },
 

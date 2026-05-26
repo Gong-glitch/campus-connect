@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, onMounted } from "vue";
 import AdminTable from "../../components/shared/AdminTable.vue";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ConfirmDialog from "../../components/shared/ConfirmDialog.vue";
@@ -38,6 +38,8 @@ const pendingColumns = [
   { key: "contactEmail", label: "Contact" },
   { key: "status", label: "Review Status" }
 ];
+
+onMounted(() => store.fetchItems());
 
 function openAdd() {
   editing.value = null;
