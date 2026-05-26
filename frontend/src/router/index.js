@@ -26,7 +26,7 @@ const PUBLIC_PATHS = new Set(["/", "/login", "/admin", "/admin/setup"]);
 // Protected admin route namespace prefix
 const ADMIN_PREFIX = "/admin/";
 
-// 3. Router Mapping Matrix Definitions
+// 3. Router Mapping Matrix Definitions (Named Export handled here)
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -105,6 +105,5 @@ router.beforeEach((to) => {
   return to.path.startsWith(ADMIN_PREFIX) ? "/admin" : "/login";
 });
 
-// 🚀 DUAL EXPORTS: Fixes named imports like { router } and fallback defaults simultaneously
-export { router };
+// 5. Default Export handler matching your main.js fallback imports
 export default router;
