@@ -47,7 +47,9 @@ function loadState() {
 
 function mapItem(raw) {
   return {
-    id: String(raw.id),
+    // Keep the ID as the numeric value the DB assigned — never convert to a
+    // prefixed string so API calls like PUT /items/1 always receive a valid bigint
+    id: raw.id,
     name: raw.title ?? raw.name ?? "",
     category: raw.category ?? "",
     location: raw.location ?? "",
@@ -75,22 +77,6 @@ export function createAppStore() {
   function addActivity(text) {
     state.activity.unshift({ id: crypto.randomUUID(), text, time: new Date().toLocaleString() });
     persist();
-  }
-
-  function toPublicFoundItem(report, reviewer = "Admin") {
-    return {
-      id: report.id,
-      sourceReportId: report.id,
-      name: report.name,
-      category: report.category,
-      location: report.location,
-      date: report.date,
-      status: "Unclaimed",
-      reportedBy: reviewer,
-      description: report.description,
-      photo: report.photo || `https://placehold.co/640x420/e8f5ee/1b6b3a?text=${encodeURIComponent(report.name)}`,
-      contactEmail: report.contactEmail
-    };
   }
 
   const store = {
@@ -187,6 +173,8 @@ export function createAppStore() {
       if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
         throw new Error("Invalid lost report input.");
       }
+      // The LOST-... ID is a client-side reference number only — it is stored in
+      // localStorage and displayed to the student but is never sent to the backend.
       const report = { id: `LOST-${Date.now()}`, ...clean, status: "Open", ownerEmail: state.session?.email };
       state.lostReports.unshift(report);
       addActivity(`${clean.name} lost report submitted`);
@@ -198,6 +186,8 @@ export function createAppStore() {
       if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
         throw new Error("Invalid found report input.");
       }
+      // The FOUND-... ID is a client-side reference number only — it is stored in
+      // localStorage and displayed to the student but is never sent to the backend.
       const report = { id: `FOUND-${Date.now()}`, ...clean, status: "Pending Approval", ownerEmail: state.session?.email };
       state.foundReports.unshift(report);
       addActivity(`${clean.name} found report submitted for approval`);
@@ -214,7 +204,6 @@ export function createAppStore() {
         } else {
           const clean = sanitizeReportPayload({ ...list[index], ...payload });
           list[index] = { ...list[index], ...clean, status: "Pending Approval" };
-          state.foundItems = state.foundItems.filter((item) => item.sourceReportId !== id && item.id !== id);
         }
       }
       persist();
@@ -235,57 +224,38 @@ export function createAppStore() {
       addActivity(`${clean.claimantName} submitted a claim for ${clean.itemName}`);
     },
 
-    addFoundItem(payload) {
-      const clean = sanitizeReportPayload(payload);
-      if (!clean.name || !clean.description || !clean.date) {
-        throw new Error("Invalid item input.");
-      }
-      state.foundItems.unshift({
-        id: crypto.randomUUID(),
-        ...payload,
-        ...clean,
-        contactEmail: clean.contactEmail || state.session?.email || "admin@local"
-      });
-      addActivity(`${clean.name} added by admin`);
-    },
-
-    approveFoundReport(id) {
+    // Approves a locally-submitted found report by persisting it to the database.
+    // The item receives a real numeric DB ID and is re-fetched via fetchItems() so
+    // every subsequent API call (edit, delete, mark-claimed) uses that numeric ID.
+    async approveFoundReport(id) {
       const report = state.foundReports.find((item) => item.id === id);
       if (!report) return;
+
+      const payload = {
+        title:       report.name,
+        description: report.description || "",
+        category:    report.category,
+        location:    report.location,
+        status:      "Unclaimed",
+        image_path:  report.photo || null
+      };
+
+      // POST to backend — the DB assigns a real numeric ID
+      await api.post("/items", payload);
+
       report.status = "Approved";
-      const publicItem = toPublicFoundItem(report, state.session?.name || "Admin");
-      const existingIndex = state.foundItems.findIndex((item) => item.sourceReportId === id || item.id === id);
-      if (existingIndex >= 0) {
-        state.foundItems[existingIndex] = { ...state.foundItems[existingIndex], ...publicItem };
-      } else {
-        state.foundItems.unshift(publicItem);
-      }
       addActivity(`${report.name} approved and posted`);
       persist();
+
+      // Re-sync foundItems from the DB so the new item carries its real numeric ID
+      await store.fetchItems();
     },
 
     rejectFoundReport(id) {
       const report = state.foundReports.find((item) => item.id === id);
       if (!report) return;
       report.status = "Rejected";
-      state.foundItems = state.foundItems.filter((item) => item.sourceReportId !== id && item.id !== id);
-      addActivity(`${report.name} rejected`);
-      persist();
-    },
-
-    updateFoundItem(id, payload) {
-      const index = state.foundItems.findIndex((item) => item.id === id);
-      if (index >= 0) {
-        const current = state.foundItems[index];
-        const merged = { ...current, ...payload };
-        const clean = sanitizeReportPayload(merged);
-        state.foundItems[index] = { ...merged, ...clean };
-      }
-      persist();
-    },
-
-    deleteFoundItem(id) {
-      state.foundItems = state.foundItems.filter((item) => item.id !== id);
+      addActivity(`${report.name} report rejected`);
       persist();
     },
 

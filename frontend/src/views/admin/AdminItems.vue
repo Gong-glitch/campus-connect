@@ -117,6 +117,17 @@ async function markClaimed(item) {
     alert(err.message || "Failed to update status.");
   }
 }
+
+// Approve a pending found report: POSTs it to the backend so the DB assigns a
+// real numeric ID, then re-fetches foundItems. Using an async wrapper here so
+// Vue's @click handler properly awaits the store method.
+async function approveReport(id) {
+  try {
+    await store.approveFoundReport(id);
+  } catch (err) {
+    alert(err.message || "Failed to approve report.");
+  }
+}
 </script>
 
 <template>
@@ -135,7 +146,7 @@ async function markClaimed(item) {
         <template #actions="{ row }">
           <div class="flex gap-2">
             <button class="btn-secondary px-3 py-1.5" @click="alert(row.description)">View</button>
-            <button class="btn-primary px-3 py-1.5" @click="store.approveFoundReport(row.id)">Approve</button>
+            <button class="btn-primary px-3 py-1.5" @click="approveReport(row.id)">Approve</button>
             <button class="btn-danger px-3 py-1.5" @click="store.rejectFoundReport(row.id)">Reject</button>
           </div>
         </template>
