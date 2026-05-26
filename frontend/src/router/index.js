@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
+
+// 1. Core Module View Components Imports
 import AdminClaims from "../views/admin/AdminClaims.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminItems from "../views/admin/AdminItems.vue";
@@ -15,66 +17,92 @@ import MyReports from "../views/user/MyReports.vue";
 import ReportFound from "../views/user/ReportFound.vue";
 import ReportLost from "../views/user/ReportLost.vue";
 
+// 2. Global State Storage Key Handlers
 const TOKEN_KEY = "campus-auth-token";
 const STORAGE_KEY = "campus-lost-found-csu-v2";
 
-// Routes that never require a token
+// Routes accessible without any authentication tokens
 const PUBLIC_PATHS = new Set(["/", "/login", "/admin", "/admin/setup"]);
-// Protected admin route prefix
+// Protected admin route namespace prefix
 const ADMIN_PREFIX = "/admin/";
 
+// 3. Router Mapping Matrix Definitions
 export const router = createRouter({
-  history: createWebHistory(),
-  routes: [
-    { path: "/",                 redirect: "/login" },
-    { path: "/login",             component: LoginRegister },
-    { path: "/home",              component: HomePage },
-    { path: "/browse",            component: BrowseFound },
-    { path: "/items/:id",         component: ItemDetail },
-    { path: "/report-lost",       component: ReportLost },
-    { path: "/report-found",      component: ReportFound },
-    { path: "/my-reports",        component: MyReports },
-    { path: "/admin",             component: AdminLogin },
-    { path: "/admin/setup",       component: AdminSetup },
-    { path: "/admin/dashboard",   component: AdminDashboard },
-    { path: "/admin/items",       component: AdminItems },
-    { path: "/admin/lost-reports",component: AdminLostReports },
-    { path: "/admin/claims",      component: AdminClaims },
-    { path: "/admin/users",       component: AdminUsers },
-    { path: "/admin/settings",    component: AdminSettings }
-  ]
+history: createWebHistory(),
+routes: [
+{ path: "/",                 redirect: "/login" },
+{ path: "/login",            component: LoginRegister },
+{ path: "/home",             component: HomePage },
+{ path: "/browse",           component: BrowseFound },
+{ path: "/items/:id",         component: ItemDetail },
+{ path: "/report-lost",       component: ReportLost },
+{ path: "/report-found",      component: ReportFound },
+{ path: "/my-reports",        component: MyReports },
+{ path: "/admin",             component: AdminLogin },
+{ path: "/admin/setup",       component: AdminSetup },
+{ path: "/admin/dashboard",   component: AdminDashboard },
+{ path: "/admin/items",       component: AdminItems },
+{ path: "/admin/lost-reports",component: AdminLostReports },
+{ path: "/admin/claims",      component: AdminClaims },
+{ path: "/admin/users",       component: AdminUsers },
+{ path: "/admin/settings",    component: AdminSettings }
+]
 });
 
+// 4. Global Navigation Interceptor Guard Guardrails Engine
 router.beforeEach((to) => {
-  // 1. Always allow public pages through without a token check
-  if (PUBLIC_PATHS.has(to.path)) return true;
+// Always let users navigate directly to public authentication forms
+if (PUBLIC_PATHS.has(to.path)) return true;
 
-  // 2. Fetch token and active session storage object safely
-  const hasToken = Boolean(localStorage.getItem(TOKEN_KEY));
-  const rawStore = localStorage.getItem(STORAGE_KEY);
-  let userRole = "user";
+// Read local storage state drivers uniformly
+const rawStore = localStorage.getItem(STORAGE_KEY);
+let hasToken = Boolean(localStorage.getItem(TOKEN_KEY));
+let userRole = "user";
 
-  try {
-    if (rawStore) {
-      const parsed = JSON.parse(rawStore);
-      if (parsed?.session?.role) {
-        userRole = parsed.session.role;
-      }
-    }
-  } catch (_) {}
+try {
+if (rawStore) {
+const parsed = JSON.parse(rawStore);
 
-  // 3. If authenticated, verify authority scopes
-  if (hasToken) {
-    const isTargetingAdmin = to.path.startsWith(ADMIN_PREFIX);
+// Fallback crosscheck: verify token properties within states
+if (parsed?.session?.token || parsed?.token) {
+hasToken = true;
+}
 
-    // Regular students attempting to reach admin tools get bounced to home
-    if (isTargetingAdmin && userRole !== "admin") {
-      return "/home";
-    }
-    return true;
-  }
+// Strict role extraction mapping fallbacks
+if (parsed?.session?.role) {
+userRole = parsed.session.role;
+} else if (parsed?.user?.role) {
+userRole = parsed.user.role;
+}
+}
+} catch (error) {
+console.warn("Router guard storage engine parse fallback warning:", error);
+}
 
-  // 4. No token present — redirect to corresponding login panels cleanly
-  const isAdminRoute = to.path.startsWith(ADMIN_PREFIX);
-  return isAdminRoute ? "/admin" : "/login";
+// Handle active session traffic rules
+if (hasToken) {
+const isTargetingAdmin = to.path.startsWith(ADMIN_PREFIX);
+
+// Bounce authenticated users out of login modules directly to their platforms
+if (to.path === "/login" || to.path === "/admin") {
+return userRole === "admin" ? "/admin/dashboard" : "/home";
+}
+
+// Shield Admin tools from unauthorized Student accounts
+if (isTargetingAdmin && userRole !== "admin") {
+return "/home";
+}
+
+// Auto-route System Admins into the monitoring command center panel if they click the home link
+if (!isTargetingAdmin && userRole === "admin" && to.path === "/home") {
+return "/admin/dashboard";
+}
+
+return true;
+}
+
+// Fallback Rule: Session does not exist -> redirect to appropriate login portal safely
+return to.path.startsWith(ADMIN_PREFIX) ? "/admin" : "/login";
 });
+
+export default router; where do i put this?
