@@ -38,3 +38,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/admin/users/{id}', [UserController::class, 'update']);
     Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
 });
+// 🧽 Temporary database utility to remove alpha-numeric test strings
+Route::get('/clean-db-junk', function() {
+    try {
+        $deleted = \DB::table('items')->whereRaw('id::text LIKE ?', ['%FOUND%'])->delete();
+        return response()->json([
+            'success' => true, 
+            'message' => "Successfully removed {$deleted} malformed items from the table!"
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()]);
+    }
+});
