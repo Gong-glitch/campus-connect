@@ -1,11 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useStore } from "@/composables/useStore";
+import { useStore } from "../../composables/useStore"; // Fixed to use direct relative paths
 
-// 🚀 Fixed: Relative path jumps converted to absolute root tracking aliases
-import AppNavbar from "@/components/shared/AppNavbar.vue";
-import AdminTable from "@/components/shared/AdminTable.vue";
-import ClaimModal from "@/components/shared/ClaimModal.vue";
+// 🚀 Fixed: Explicitly relative paths that work perfectly on Linux production builds
+import AppNavbar from "../../components/shared/AppNavbar.vue";
+import AdminTable from "../../components/shared/AdminTable.vue";
+import ClaimModal from "../../components/shared/ClaimModal.vue";
 
 const store = useStore();
 const { state } = store;
