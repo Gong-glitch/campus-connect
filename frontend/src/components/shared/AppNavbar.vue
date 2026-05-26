@@ -28,7 +28,9 @@ const adminLinks = [
 
 async function logout() {
   await store.logout();
-  router.push(props.role === "admin" ? "/admin" : "/login");
+  // Use a hard redirect instead of router.push so the browser discards the
+  // cached page from its back/forward cache and the user cannot navigate back.
+  window.location.href = props.role === "admin" ? "/admin" : "/login";
 }
 </script>
 

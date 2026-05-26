@@ -15,24 +15,44 @@ import MyReports from "../views/user/MyReports.vue";
 import ReportFound from "../views/user/ReportFound.vue";
 import ReportLost from "../views/user/ReportLost.vue";
 
+const TOKEN_KEY = "campus-auth-token";
+
+// Routes that never require a token
+const PUBLIC_PATHS = new Set(["/", "/login", "/admin", "/admin/setup"]);
+// Protected admin route prefix
+const ADMIN_PREFIX = "/admin/";
+
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/", redirect: "/login" },
-    { path: "/login", component: LoginRegister },
-    { path: "/home", component: HomePage },
-    { path: "/browse", component: BrowseFound },
-    { path: "/items/:id", component: ItemDetail },
-    { path: "/report-lost", component: ReportLost },
-    { path: "/report-found", component: ReportFound },
-    { path: "/my-reports", component: MyReports },
-    { path: "/admin", component: AdminLogin },
-    { path: "/admin/setup", component: AdminSetup },
-    { path: "/admin/dashboard", component: AdminDashboard },
-    { path: "/admin/items", component: AdminItems },
-    { path: "/admin/lost-reports", component: AdminLostReports },
-    { path: "/admin/claims", component: AdminClaims },
-    { path: "/admin/users", component: AdminUsers },
-    { path: "/admin/settings", component: AdminSettings }
+    { path: "/",                  redirect: "/login" },
+    { path: "/login",             component: LoginRegister },
+    { path: "/home",              component: HomePage },
+    { path: "/browse",            component: BrowseFound },
+    { path: "/items/:id",         component: ItemDetail },
+    { path: "/report-lost",       component: ReportLost },
+    { path: "/report-found",      component: ReportFound },
+    { path: "/my-reports",        component: MyReports },
+    { path: "/admin",             component: AdminLogin },
+    { path: "/admin/setup",       component: AdminSetup },
+    { path: "/admin/dashboard",   component: AdminDashboard },
+    { path: "/admin/items",       component: AdminItems },
+    { path: "/admin/lost-reports",component: AdminLostReports },
+    { path: "/admin/claims",      component: AdminClaims },
+    { path: "/admin/users",       component: AdminUsers },
+    { path: "/admin/settings",    component: AdminSettings }
   ]
+});
+
+router.beforeEach((to) => {
+  // Always allow public pages through without a token check
+  if (PUBLIC_PATHS.has(to.path)) return true;
+
+  const hasToken = Boolean(localStorage.getItem(TOKEN_KEY));
+  if (hasToken) return true;
+
+  // No token — redirect to the appropriate login page
+  // Admin-prefixed routes go back to the admin login; all others to the student login
+  const isAdminRoute = to.path.startsWith(ADMIN_PREFIX);
+  return isAdminRoute ? "/admin" : "/login";
 });
