@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted } from "vue";
 import { CheckCircle, ClipboardList, Package, Users } from "lucide-vue-next";
+
+// 🚀 FIXED: Standard explicit relative depths matching your project structure
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ActivityFeed from "../../components/shared/ActivityFeed.vue";
 import DashboardCard from "../../components/shared/DashboardCard.vue";
