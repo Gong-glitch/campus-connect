@@ -16,6 +16,7 @@ import ReportFound from "../views/user/ReportFound.vue";
 import ReportLost from "../views/user/ReportLost.vue";
 
 const TOKEN_KEY = "campus-auth-token";
+const STORAGE_KEY = "campus-lost-found-csu-v2";
 
 // Routes that never require a token
 const PUBLIC_PATHS = new Set(["/", "/login", "/admin", "/admin/setup"]);
@@ -25,7 +26,7 @@ const ADMIN_PREFIX = "/admin/";
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/",                  redirect: "/login" },
+    { path: "/",                 redirect: "/login" },
     { path: "/login",             component: LoginRegister },
     { path: "/home",              component: HomePage },
     { path: "/browse",            component: BrowseFound },
@@ -45,14 +46,35 @@ export const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  // Always allow public pages through without a token check
+  // 1. Always allow public pages through without a token check
   if (PUBLIC_PATHS.has(to.path)) return true;
 
+  // 2. Fetch token and active session storage object safely
   const hasToken = Boolean(localStorage.getItem(TOKEN_KEY));
-  if (hasToken) return true;
+  const rawStore = localStorage.getItem(STORAGE_KEY);
+  let userRole = "user";
 
-  // No token — redirect to the appropriate login page
-  // Admin-prefixed routes go back to the admin login; all others to the student login
+  try {
+    if (rawStore) {
+      const parsed = JSON.parse(rawStore);
+      if (parsed?.session?.role) {
+        userRole = parsed.session.role;
+      }
+    }
+  } catch (_) {}
+
+  // 3. If authenticated, verify authority scopes
+  if (hasToken) {
+    const isTargetingAdmin = to.path.startsWith(ADMIN_PREFIX);
+
+    // Regular students attempting to reach admin tools get bounced to home
+    if (isTargetingAdmin && userRole !== "admin") {
+      return "/home";
+    }
+    return true;
+  }
+
+  // 4. No token present — redirect to corresponding login panels cleanly
   const isAdminRoute = to.path.startsWith(ADMIN_PREFIX);
   return isAdminRoute ? "/admin" : "/login";
 });
