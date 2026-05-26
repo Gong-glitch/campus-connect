@@ -1,10 +1,7 @@
 // Use a relative base so all requests flow through the Vite proxy
 // (/api → http://127.0.0.1:8000) instead of hitting an external server.
-// ✅ Replace the old const BASE line with this smart toggle:
-const BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "/api" 
-  : "https://campus-connect-3s6n.onrender.com/api"; // Your live production API domain
 
+const BASE = "/api"; 
 const TOKEN_KEY = "campus-auth-token";
 
 export function getToken() {
