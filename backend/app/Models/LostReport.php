@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Item extends Model
+class LostReport extends Model
 {
     use HasFactory;
 
@@ -15,10 +15,10 @@ class Item extends Model
         'description',
         'category',
         'location',
+        'date_lost',
+        'contact_email',
         'status',
         'image_path',
-        'contact_email',
-        'found_date',
     ];
 
     public function user()

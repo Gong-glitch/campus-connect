@@ -11,19 +11,32 @@ class ItemController extends Controller
     {
         $query = Item::with('user:id,name')->latest();
 
+        // ?search= full-text filter
         $query->when($request->query('search'), function ($q, $search) {
-            $q->where(function ($subQ) use ($search) {
-                $subQ->where('title', 'like', '%' . $search . '%')
-                     ->orWhere('description', 'like', '%' . $search . '%');
+            $q->where(function ($sub) use ($search) {
+                $sub->where('title', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
             });
         });
 
+        // ?status= single-status filter
         $query->when($request->query('status'), function ($q, $status) {
             $q->where('status', $status);
         });
 
+        // ?category= category filter
         $query->when($request->query('category'), function ($q, $category) {
             $q->where('category', $category);
+        });
+
+        // ?mine=1 — return only the authenticated user's own items (all statuses)
+        $query->when($request->query('mine'), function ($q) use ($request) {
+            $q->where('user_id', $request->user()->id);
+        });
+
+        // ?pending=1 — return items awaiting admin review (Pending Approval or Rejected)
+        $query->when($request->query('pending'), function ($q) {
+            $q->whereIn('status', ['Pending Approval', 'Rejected']);
         });
 
         return response()->json($query->get(), 200);
@@ -32,15 +45,22 @@ class ItemController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
-            'description' => 'required|string',
-            'category'    => 'required|string',
-            'location'    => 'required|string',
-            'status'      => 'required|string',
-            'image_path'  => 'nullable|string|max:500',
+            'title'         => 'required|string|max:255',
+            'description'   => 'required|string',
+            'category'      => 'required|string',
+            'location'      => 'required|string',
+            'status'        => 'required|string',
+            'image_path'    => 'nullable|string|max:500',
+            'contact_email' => 'nullable|email|max:255',
+            'found_date'    => 'nullable|date',
         ]);
 
         $validated['user_id'] = $request->user()->id;
+
+        // Students may only submit pending reports — admins may set any status
+        if ($request->user()->role !== 'admin') {
+            $validated['status'] = 'Pending Approval';
+        }
 
         $item = Item::create($validated);
         $item->load('user:id,name');
@@ -73,12 +93,14 @@ class ItemController extends Controller
         }
 
         $validated = $request->validate([
-            'title'       => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'category'    => 'sometimes|required|string',
-            'location'    => 'sometimes|required|string',
-            'status'      => 'sometimes|required|string',
-            'image_path'  => 'sometimes|nullable|string|max:500',
+            'title'         => 'sometimes|required|string|max:255',
+            'description'   => 'sometimes|required|string',
+            'category'      => 'sometimes|required|string',
+            'location'      => 'sometimes|required|string',
+            'status'        => 'sometimes|required|string',
+            'image_path'    => 'sometimes|nullable|string|max:500',
+            'contact_email' => 'sometimes|nullable|email|max:255',
+            'found_date'    => 'sometimes|nullable|date',
         ]);
 
         $item->update($validated);

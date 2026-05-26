@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\LostReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UploadController;
 
@@ -18,7 +19,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', fn(Request $request) => $request->user());
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/password', [AuthController::class, 'changePassword']);
+
+    // Found items (publicly listed once approved)
     Route::apiResource('items', ItemController::class);
+
+    // Lost reports
+    Route::post('/lost-reports', [LostReportController::class, 'store']);
+    Route::get('/my-reports/lost', [LostReportController::class, 'myReports']);
+    Route::get('/lost-reports', [LostReportController::class, 'index']);
+    Route::patch('/lost-reports/{id}', [LostReportController::class, 'update']);
+    Route::delete('/lost-reports/{id}', [LostReportController::class, 'destroy']);
 
     // Image upload
     Route::post('/upload', [UploadController::class, 'upload']);

@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, ref } from "vue";
+import { Loader2 } from "lucide-vue-next";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ImageUploader from "../../components/shared/ImageUploader.vue";
 import { useStore } from "../../composables/useStore";
@@ -7,10 +8,11 @@ import { isValidEmail, sanitizeReportPayload } from "../../utils/inputProtection
 
 const store = useStore();
 const reference = ref("");
+const saving = ref(false);
 const errors = ref({});
 const form = reactive({ name: "", category: "Electronics", description: "", location: "CCIS Building", date: "", contactEmail: "", photo: "" });
 
-function submit() {
+async function submit() {
   const clean = sanitizeReportPayload(form);
   Object.assign(form, clean);
   errors.value = {};
@@ -20,10 +22,15 @@ function submit() {
   if (!form.date) errors.value.date = "Date found is required.";
   if (!isValidEmail(form.contactEmail)) errors.value.contactEmail = "Enter a valid contact email.";
   if (Object.keys(errors.value).length) return;
+
+  saving.value = true;
   try {
-    reference.value = store.addFoundReport({ ...form });
+    const id = await store.addFoundReport({ ...form });
+    reference.value = String(id);
   } catch (err) {
     errors.value.form = err.message || "Unable to submit found report.";
+  } finally {
+    saving.value = false;
   }
 }
 </script>
@@ -35,7 +42,7 @@ function submit() {
       <h1 class="text-3xl font-bold text-primary">Thank you for reporting a found item</h1>
       <p class="mt-3 text-muted">Your report is pending admin approval before it appears in public listings.</p>
       <p class="mt-3 text-muted">Reference Number</p>
-      <p class="mt-1 text-2xl font-bold text-dark">{{ reference }}</p>
+      <p class="mt-1 text-2xl font-bold text-dark">#{{ reference }}</p>
       <RouterLink class="btn-primary mt-6" to="/my-reports">View My Reports</RouterLink>
     </section>
     <form v-else class="rounded-md bg-white p-6 shadow-soft" @submit.prevent="submit">
@@ -57,7 +64,10 @@ function submit() {
         <div class="sm:col-span-2"><span class="label">Photo Upload</span><ImageUploader v-model="form.photo" class="mt-1" /></div>
       </div>
       <p v-if="errors.form" class="mt-3 text-sm text-danger">{{ errors.form }}</p>
-      <button class="btn-primary mt-6 w-full">Submit Found Report</button>
+      <button class="btn-primary mt-6 flex w-full items-center justify-center gap-2" :disabled="saving">
+        <Loader2 v-if="saving" class="h-4 w-4 animate-spin" />
+        {{ saving ? "Submitting…" : "Submit Found Report" }}
+      </button>
     </form>
   </main>
 </template>

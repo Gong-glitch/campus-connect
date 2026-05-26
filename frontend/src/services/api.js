@@ -1,4 +1,6 @@
-const BASE = "https://campus-connect-api-0s3b.onrender.com/api";
+// Use a relative base so all requests flow through the Vite proxy
+// (/api → http://127.0.0.1:8000) instead of hitting an external server.
+const BASE = "/api";
 const TOKEN_KEY = "campus-auth-token";
 
 export function getToken() {

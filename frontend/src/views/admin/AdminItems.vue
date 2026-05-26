@@ -14,9 +14,10 @@ const search = ref("");
 const modal = ref(false);
 const saving = ref(false);
 const saveError = ref("");
-const editing = ref(null);   // item id being edited, or null for new
+const editing = ref(null);
 const deleting = ref(null);
 const deleteLoading = ref(false);
+const pendingItems = ref([]);
 
 const form = reactive({
   name: "", category: "Electronics", location: "CCIS Building",
@@ -47,14 +48,36 @@ const rows = computed(() =>
 );
 
 const pendingRows = computed(() =>
-  store.state.foundReports.filter(
-    (r) =>
-      ["Pending Approval", "Rejected"].includes(r.status) &&
-      r.name.toLowerCase().includes(search.value.toLowerCase())
+  pendingItems.value.filter((r) =>
+    ["Pending Approval", "Rejected"].includes(r.status) &&
+    r.name.toLowerCase().includes(search.value.toLowerCase())
   )
 );
 
-onMounted(() => store.fetchItems());
+function mapPendingItem(raw) {
+  return {
+    id: raw.id,
+    name: raw.title ?? "",
+    category: raw.category ?? "",
+    location: raw.location ?? "",
+    date: (raw.found_date ?? raw.created_at ?? "").slice(0, 10),
+    contactEmail: raw.contact_email ?? "",
+    status: raw.status ?? "Pending Approval",
+    description: raw.description ?? ""
+  };
+}
+
+async function fetchPending() {
+  try {
+    const raw = await api.get("/items?pending=1");
+    pendingItems.value = raw.map(mapPendingItem);
+  } catch (_) {}
+}
+
+onMounted(() => {
+  store.fetchItems();
+  fetchPending();
+});
 
 function openAdd() {
   editing.value = null;
@@ -79,7 +102,7 @@ async function save() {
     category:    form.category,
     location:    form.location,
     status:      form.status,
-    image_path:  form.photo || null,
+    image_path:  form.photo || null
   };
   try {
     if (editing.value) {
@@ -118,14 +141,23 @@ async function markClaimed(item) {
   }
 }
 
-// Approve a pending found report: POSTs it to the backend so the DB assigns a
-// real numeric ID, then re-fetches foundItems. Using an async wrapper here so
-// Vue's @click handler properly awaits the store method.
+// Approve: PATCH the existing pending item to 'Unclaimed', then refresh both lists
 async function approveReport(id) {
   try {
     await store.approveFoundReport(id);
+    await fetchPending();
   } catch (err) {
     alert(err.message || "Failed to approve report.");
+  }
+}
+
+// Reject: PATCH the item to 'Rejected', then refresh the pending list
+async function rejectReport(id) {
+  try {
+    await store.rejectFoundReport(id);
+    await fetchPending();
+  } catch (err) {
+    alert(err.message || "Failed to reject report.");
   }
 }
 </script>
@@ -147,7 +179,7 @@ async function approveReport(id) {
           <div class="flex gap-2">
             <button class="btn-secondary px-3 py-1.5" @click="alert(row.description)">View</button>
             <button class="btn-primary px-3 py-1.5" @click="approveReport(row.id)">Approve</button>
-            <button class="btn-danger px-3 py-1.5" @click="store.rejectFoundReport(row.id)">Reject</button>
+            <button class="btn-danger px-3 py-1.5" @click="rejectReport(row.id)">Reject</button>
           </div>
         </template>
       </AdminTable>

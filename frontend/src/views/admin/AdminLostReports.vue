@@ -1,21 +1,65 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { X } from "lucide-vue-next";
 import AdminTable from "../../components/shared/AdminTable.vue";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import StatusBadge from "../../components/shared/StatusBadge.vue";
-import { useStore } from "../../composables/useStore";
+import { api } from "../../services/api";
 
-const store = useStore();
 const selected = ref(null);
+const rows = ref([]);
+
+function mapRow(raw) {
+  return {
+    id: raw.id,
+    name: raw.title ?? "",
+    category: raw.category ?? "",
+    location: raw.location ?? "",
+    date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
+    contactEmail: raw.contact_email ?? "",
+    status: raw.status ?? "Open",
+    description: raw.description ?? "",
+    reportedBy: raw.user?.name ?? ""
+  };
+}
+
+async function fetchReports() {
+  try {
+    const raw = await api.get("/lost-reports");
+    rows.value = raw.map(mapRow);
+  } catch (_) {}
+}
+
+onMounted(fetchReports);
+
+async function flagMatched(id) {
+  try {
+    await api.patch(`/lost-reports/${id}`, { status: "Matched" });
+    await fetchReports();
+  } catch (_) {}
+}
+
+async function archive(id) {
+  try {
+    await api.patch(`/lost-reports/${id}`, { status: "Archived" });
+    await fetchReports();
+  } catch (_) {}
+}
+
+async function remove(id) {
+  try {
+    await api.delete(`/lost-reports/${id}`);
+    await fetchReports();
+  } catch (_) {}
+}
 
 const columns = [
-  { key: "name", label: "Item Name" },
-  { key: "category", label: "Category" },
-  { key: "location", label: "Last Seen" },
-  { key: "date", label: "Date" },
+  { key: "name",         label: "Item Name" },
+  { key: "category",     label: "Category" },
+  { key: "location",     label: "Last Seen" },
+  { key: "date",         label: "Date" },
   { key: "contactEmail", label: "Contact" },
-  { key: "status", label: "Status" }
+  { key: "status",       label: "Status" }
 ];
 </script>
 
@@ -23,14 +67,14 @@ const columns = [
   <AppNavbar role="admin" />
   <main class="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
     <h1 class="text-3xl font-bold text-dark">Manage Lost Reports</h1>
-    <AdminTable :columns="columns" :rows="store.state.lostReports">
+    <AdminTable :columns="columns" :rows="rows">
       <template #status="{ row }"><StatusBadge :status="row.status" /></template>
       <template #actions="{ row }">
         <div class="flex gap-2">
           <button class="btn-secondary px-3 py-1.5" @click="selected = row">View</button>
-          <button class="btn-secondary px-3 py-1.5" @click="store.updateReport('lost', row.id, { status: 'Matched' })">Flag as Matched</button>
-          <button class="btn-secondary px-3 py-1.5" @click="store.updateReport('lost', row.id, { status: 'Archived' })">Archive</button>
-          <button class="btn-danger px-3 py-1.5" @click="store.deleteReport('lost', row.id)">Delete</button>
+          <button class="btn-secondary px-3 py-1.5" @click="flagMatched(row.id)">Flag as Matched</button>
+          <button class="btn-secondary px-3 py-1.5" @click="archive(row.id)">Archive</button>
+          <button class="btn-danger px-3 py-1.5" @click="remove(row.id)">Delete</button>
         </div>
       </template>
     </AdminTable>
@@ -46,30 +90,13 @@ const columns = [
         </div>
         <div class="space-y-3 px-5 py-5 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div>
-              <p class="label">Item Name</p>
-              <p class="mt-0.5 font-medium text-dark">{{ selected.name }}</p>
-            </div>
-            <div>
-              <p class="label">Category</p>
-              <p class="mt-0.5 font-medium text-dark">{{ selected.category }}</p>
-            </div>
-            <div>
-              <p class="label">Last Seen Location</p>
-              <p class="mt-0.5 font-medium text-dark">{{ selected.location }}</p>
-            </div>
-            <div>
-              <p class="label">Date Lost</p>
-              <p class="mt-0.5 font-medium text-dark">{{ selected.date }}</p>
-            </div>
-            <div>
-              <p class="label">Contact Email</p>
-              <p class="mt-0.5 font-medium text-dark">{{ selected.contactEmail }}</p>
-            </div>
-            <div>
-              <p class="label">Status</p>
-              <StatusBadge :status="selected.status" class="mt-0.5" />
-            </div>
+            <div><p class="label">Item Name</p><p class="mt-0.5 font-medium text-dark">{{ selected.name }}</p></div>
+            <div><p class="label">Category</p><p class="mt-0.5 font-medium text-dark">{{ selected.category }}</p></div>
+            <div><p class="label">Last Seen Location</p><p class="mt-0.5 font-medium text-dark">{{ selected.location }}</p></div>
+            <div><p class="label">Date Lost</p><p class="mt-0.5 font-medium text-dark">{{ selected.date }}</p></div>
+            <div><p class="label">Contact Email</p><p class="mt-0.5 font-medium text-dark">{{ selected.contactEmail }}</p></div>
+            <div><p class="label">Reported By</p><p class="mt-0.5 font-medium text-dark">{{ selected.reportedBy }}</p></div>
+            <div><p class="label">Status</p><StatusBadge :status="selected.status" class="mt-0.5" /></div>
           </div>
           <div>
             <p class="label">Description</p>
