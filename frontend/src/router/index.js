@@ -105,4 +105,4 @@ return true;
 return to.path.startsWith(ADMIN_PREFIX) ? "/admin" : "/login";
 });
 
-export default router; where do i put this?
+export default router;
