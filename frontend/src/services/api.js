@@ -29,5 +29,17 @@ export const api = {
   post: (path, body) => request("POST", path, body),
   put: (path, body) => request("PUT", path, body),
   patch: (path, body) => request("PATCH", path, body),
-  delete: (path) => request("DELETE", path)
+  delete: (path) => request("DELETE", path),
+
+  async upload(file) {
+    const headers = { Accept: "application/json" };
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const body = new FormData();
+    body.append("image", file);
+    const res = await fetch(`${BASE}/upload`, { method: "POST", headers, body });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `Upload failed (${res.status}).`);
+    return data.url;
+  }
 };

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UploadController;
 
 // Public routes
 Route::get('/has-admin', [AuthController::class, 'hasAdmin']);
@@ -18,6 +19,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/password', [AuthController::class, 'changePassword']);
     Route::apiResource('items', ItemController::class);
+
+    // Image upload
+    Route::post('/upload', [UploadController::class, 'upload']);
 
     // Admin-only user management
     Route::get('/admin/users', [UserController::class, 'index']);
