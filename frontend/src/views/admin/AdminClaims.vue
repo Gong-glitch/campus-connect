@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useStore } from "../../composables/useStore"; // Fixed to use direct relative paths
+import { useStore } from "../../composables/useStore"; 
 
-// 🚀 Fixed: Explicitly relative paths that work perfectly on Linux production builds
+// 🚀 FIXED: Two levels up (../../) hits the src directory perfectly on Linux
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import AdminTable from "../../components/shared/AdminTable.vue";
 import ClaimModal from "../../components/shared/ClaimModal.vue";
