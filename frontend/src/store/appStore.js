@@ -183,7 +183,7 @@ export function createAppStore() {
       } catch (_) {}
     },
 
-    // ✅ Fixed Crashproof Login Handler
+    // ✅ Fixed Crashproof Login Handler with Automated Redirect Engine
     async login(email, password, role = "user") {
       const data = await api.post("/login", {
         email: sanitizeEmail(email),
@@ -207,9 +207,12 @@ export function createAppStore() {
 
       // Load locations immediately upon login access
       await this.fetchLocations();
+
+      // 🚀 Redirect to Admin dashboard or normal User home based on role
+      window.location.href = state.session.role === "admin" ? "/admin/users" : "/home";
     },
 
-    // ✅ Fixed Crashproof Registration Handler
+    // ✅ Fixed Crashproof Registration Handler with Automated Redirect Engine
     async register(payload) {
       const clean = sanitizeRegisterPayload(payload);
       if (
@@ -241,17 +244,30 @@ export function createAppStore() {
       };
       addActivity(`${user.name ?? "User"} registered`);
       persist();
+
+      // 🚀 Force immediate entry to the dashboard layout once registration drops securely
+      window.location.href = "/home";
     },
 
+    // ✅ Fixed Initial System Setup Admin Account Route Redirect
     async createAdmin(payload) {
-      await api.post("/setup-admin", {
+      const data = await api.post("/setup-admin", {
         name: sanitizeText(payload.name, 120),
         school_id: sanitizeText(payload.schoolId, 40),
         email: sanitizeEmail(payload.email),
         password: payload.password,
       });
+
+      // If the setup admin response includes an authorization token, set it immediately
+      if (data && data.token) {
+        setToken(data.token);
+      }
+
       addActivity("Admin account created");
       persist();
+
+      // 🚀 Send the master admin straight through the doorway to user records control view
+      window.location.href = "/admin/users";
     },
 
     async logout() {
