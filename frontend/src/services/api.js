@@ -1,7 +1,8 @@
 // Use a relative base so all requests flow through the Vite proxy
 // (/api → http://127.0.0.1:8000) instead of hitting an external server.
 
-const BASE = "/api"; 
+// Change this line from "/api" to point to your live backend domain:
+const BASE = "https://campus-connect-3s6n.onrender.com/api";
 const TOKEN_KEY = "campus-auth-token";
 
 export function getToken() {
@@ -14,16 +15,20 @@ export function setToken(token) {
 }
 
 async function request(method, path, body) {
-  const headers = { "Content-Type": "application/json", Accept: "application/json" };
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `Request failed (${res.status}).`);
+  if (!res.ok)
+    throw new Error(data.message || `Request failed (${res.status}).`);
   return data;
 }
 
@@ -40,9 +45,14 @@ export const api = {
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const body = new FormData();
     body.append("image", file);
-    const res = await fetch(`${BASE}/upload`, { method: "POST", headers, body });
+    const res = await fetch(`${BASE}/upload`, {
+      method: "POST",
+      headers,
+      body,
+    });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || `Upload failed (${res.status}).`);
+    if (!res.ok)
+      throw new Error(data.message || `Upload failed (${res.status}).`);
     return data.url;
-  }
+  },
 };
