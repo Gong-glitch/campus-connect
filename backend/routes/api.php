@@ -7,6 +7,7 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LostReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UploadController;
+use App\Http\Controllers\ClaimController; // 👈 1. IMPORT CLAIIMS CONTROLLER HERE
 
 // Public routes
 Route::get('/has-admin', [AuthController::class, 'hasAdmin']);
@@ -30,6 +31,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/lost-reports/{id}', [LostReportController::class, 'update']);
     Route::delete('/lost-reports/{id}', [LostReportController::class, 'destroy']);
 
+    // 🏆 2. ADD THE CLAIMS ENDPOINTS HERE:
+    // Student Claim Operations
+    Route::post('/claims', [ClaimController::class, 'store']);
+    Route::get('/my-claims', [ClaimController::class, 'myClaims']);
+
+    // Admin Claims Controls
+    Route::get('/admin/claims', [ClaimController::class, 'index']);
+    Route::patch('/admin/claims/{id}/status', [ClaimController::class, 'updateStatus']);
+
     // Image upload
     Route::post('/upload', [UploadController::class, 'upload']);
 
@@ -38,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/admin/users/{id}', [UserController::class, 'update']);
     Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
 });
+
 // 🧽 Temporary database utility to remove alpha-numeric test strings
 Route::get('/clean-db-junk', function() {
     try {
