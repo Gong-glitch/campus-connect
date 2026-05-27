@@ -3,7 +3,7 @@ import AdminClaims from "../views/admin/AdminClaims.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminItems from "../views/admin/AdminItems.vue";
 import AdminLogin from "../views/admin/AdminLogin.vue";
-import AdminSetup from "../views/admin/AdminSetup.vue"; // 🚀 ADDED IMPORT
+import AdminSetup from "../views/admin/AdminSetup.vue"; 
 import AdminLostReports from "../views/admin/AdminLostReports.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 import AdminUsers from "../views/admin/AdminUsers.vue";
@@ -14,6 +14,7 @@ import LoginRegister from "../views/user/LoginRegister.vue";
 import MyReports from "../views/user/MyReports.vue";
 import ReportFound from "../views/user/ReportFound.vue";
 import ReportLost from "../views/user/ReportLost.vue";
+import MyClaims from "../views/user/MyClaims.vue"; // 🚀 ADDED: Import student claims tracking page
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -26,9 +27,10 @@ export const router = createRouter({
     { path: "/report-lost", component: ReportLost },
     { path: "/report-found", component: ReportFound },
     { path: "/my-reports", component: MyReports },
-    { path: "/admin", redirect: "/admin/login" }, // 🚀 REDIRECT /admin to /admin/login cleanly
-    { path: "/admin/login", component: AdminLogin }, // 🚀 EXPLICIT LOGIN ROUTE
-    { path: "/admin/setup", component: AdminSetup }, // 🚀 FIXED: Added the missing setup route mapping!
+    { path: "/my-claims", component: MyClaims }, // 🚀 ADDED: Route path for student claims tracking screen
+    { path: "/admin", redirect: "/admin/login" }, 
+    { path: "/admin/login", component: AdminLogin }, 
+    { path: "/admin/setup", component: AdminSetup }, 
     { path: "/admin/dashboard", component: AdminDashboard },
     { path: "/admin/items", component: AdminItems },
     { path: "/admin/lost-reports", component: AdminLostReports },

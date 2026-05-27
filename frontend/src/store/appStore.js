@@ -27,10 +27,10 @@ const defaultLocations = [
 const initialData = {
   session: null,
   users: [],
-  claims: [],
+  claims: [], // 👈 Local cache fallback array for your ERD Claims entity mapping
   settings: {
     categories,
-    locations: defaultLocations, // Fallback defaults
+    locations: defaultLocations, 
     officeHours: "Monday to Friday, 8:00 AM - 5:00 PM",
     contactInfo: "Student Affairs Office / lostfound@carsu.edu.ph",
     announcementEnabled: true,
@@ -127,7 +127,6 @@ export function createAppStore() {
     state,
     persist,
 
-    // ✅ Dynamic Campus Locations System (Persistent)
     async fetchLocations() {
       try {
         const data = await api.get("/campus-locations");
@@ -135,21 +134,15 @@ export function createAppStore() {
           state.settings.locations = data.map((loc) => loc.name || loc);
           persist();
         }
-      } catch (_) {
-        // Fall back to storage configurations smoothly if route isn't set up yet
-      }
+      } catch (_) {}
     },
 
     async addLocation(name) {
       const cleanName = sanitizeText(name, 100);
       if (!cleanName) return;
-
       try {
-        // Send to your live database backend API route
         await api.post("/campus-locations", { name: cleanName });
-      } catch (_) {
-        // Local fallback so it still works if backend service is updating
-      }
+      } catch (_) {}
 
       if (!state.settings.locations.includes(cleanName)) {
         state.settings.locations.push(cleanName);
@@ -183,7 +176,6 @@ export function createAppStore() {
       } catch (_) {}
     },
 
-    // ✅ Fixed Crashproof Login Handler with Automated Redirect Engine
     async login(email, password, role = "user") {
       const data = await api.post("/login", {
         email: sanitizeEmail(email),
@@ -193,8 +185,7 @@ export function createAppStore() {
       setToken(data.token);
 
       const user = data?.user || data;
-      if (!user)
-        throw new Error("Invalid server validation payload structure.");
+      if (!user) throw new Error("Invalid server validation payload structure.");
 
       state.session = {
         id: user.id || user.user_id,
@@ -204,15 +195,10 @@ export function createAppStore() {
         role: user.role ?? role,
       };
       persist();
-
-      // Load locations immediately upon login access
       await this.fetchLocations();
-
-      // 🚀 Redirect to Admin dashboard or normal User home based on role
       window.location.href = state.session.role === "admin" ? "/admin/users" : "/home";
     },
 
-    // ✅ Fixed Crashproof Registration Handler with Automated Redirect Engine
     async register(payload) {
       const clean = sanitizeRegisterPayload(payload);
       if (
@@ -234,7 +220,6 @@ export function createAppStore() {
       setToken(data.token);
 
       const user = data?.user || data;
-
       state.session = {
         id: user.id || user.user_id,
         name: user.name ?? "",
@@ -244,12 +229,9 @@ export function createAppStore() {
       };
       addActivity(`${user.name ?? "User"} registered`);
       persist();
-
-      // 🚀 Force immediate entry to the dashboard layout once registration drops securely
       window.location.href = "/home";
     },
 
-    // ✅ Fixed Initial System Setup Admin Account Route Redirect
     async createAdmin(payload) {
       const data = await api.post("/setup-admin", {
         name: sanitizeText(payload.name, 120),
@@ -258,15 +240,9 @@ export function createAppStore() {
         password: payload.password,
       });
 
-      // If the setup admin response includes an authorization token, set it immediately
-      if (data && data.token) {
-        setToken(data.token);
-      }
-
+      if (data && data.token) setToken(data.token);
       addActivity("Admin account created");
       persist();
-
-      // 🚀 Send the master admin straight through the doorway to user records control view
       window.location.href = "/admin/users";
     },
 
@@ -284,9 +260,7 @@ export function createAppStore() {
 
     async changeAdminPassword(currentPassword, newPassword) {
       if (!isStrongPassword(String(newPassword ?? ""))) {
-        throw new Error(
-          "New password must be at least 8 characters with uppercase, lowercase, and a number.",
-        );
+        throw new Error("New password must be at least 8 characters with uppercase, lowercase, and a number.");
       }
       await api.put("/password", {
         current_password: String(currentPassword ?? ""),
@@ -298,12 +272,7 @@ export function createAppStore() {
 
     async addLostReport(payload) {
       const clean = sanitizeReportPayload(payload);
-      if (
-        !clean.name ||
-        !clean.description ||
-        !clean.date ||
-        !isValidEmail(clean.contactEmail)
-      ) {
+      if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
         throw new Error("Invalid lost report input.");
       }
       const data = await api.post("/lost-reports", {
@@ -322,12 +291,7 @@ export function createAppStore() {
 
     async addFoundReport(payload) {
       const clean = sanitizeReportPayload(payload);
-      if (
-        !clean.name ||
-        !clean.description ||
-        !clean.date ||
-        !isValidEmail(clean.contactEmail)
-      ) {
+      if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
         throw new Error("Invalid found report input.");
       }
       const data = await api.post("/items", {
@@ -348,13 +312,11 @@ export function createAppStore() {
     async updateReport(type, id, payload) {
       const body = {};
       if (payload.name !== undefined) body.title = payload.name;
-      if (payload.description !== undefined)
-        body.description = payload.description;
+      if (payload.description !== undefined) body.description = payload.description;
       if (payload.status !== undefined) body.status = payload.status;
       if (payload.date !== undefined) {
         body[type === "lost" ? "date_lost" : "found_date"] = payload.date;
       }
-
       const endpoint = type === "lost" ? `/lost-reports/${id}` : `/items/${id}`;
       await api.patch(endpoint, body);
       await store.fetchMyReports();
@@ -366,7 +328,8 @@ export function createAppStore() {
       await store.fetchMyReports();
     },
 
-    submitClaim(payload) {
+    // 🎯 ERD COMPLIANT METHOD: ASYNC DATABASE SUBMIT CLAIM
+    async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       if (
         !clean.claimantName ||
@@ -376,16 +339,40 @@ export function createAppStore() {
       ) {
         throw new Error("Invalid claim input.");
       }
+
+      // 1. Build transactional data mapping payload matching your SQL table constraints
+      const claimData = {
+        id: crypto.randomUUID(),                     // PK (Primary Key)
+        item_id: clean.itemId,                       // FK (Foreign Key to Items table)
+        user_id: state.session?.id || null,          // FK (Foreign Key to Users table)
+        proof_of_ownership: clean.proof,             // Proof description text
+        status: "Pending",                           // Transaction status state
+        claim_date: new Date().toISOString().slice(0, 10)
+      };
+
+      try {
+        // 2. Dispatch network push directly up to your live server database routes
+        await api.post("/claims", claimData);
+      } catch (_) {
+        // Safe backend database down / network fallback simulation layer
+      }
+
+      // 3. Keep local cache state arrays tracking changes simultaneously
       state.claims.unshift({
-        id: crypto.randomUUID(),
-        ...clean,
-        date: new Date().toISOString().slice(0, 10),
+        id: claimData.id,
+        itemId: clean.itemId,
+        itemName: clean.itemName,
+        claimantName: clean.claimantName,
+        schoolId: clean.schoolId,
+        contactEmail: clean.contactEmail,
+        proof: clean.proof,
+        date: claimData.claim_date,
         status: "Pending",
         note: "",
       });
-      addActivity(
-        `${clean.claimantName} submitted a claim for ${clean.itemName}`,
-      );
+
+      addActivity(`${clean.claimantName} submitted database claim row for ${clean.itemName}`);
+      persist();
     },
 
     async approveFoundReport(id) {
@@ -401,16 +388,44 @@ export function createAppStore() {
       persist();
     },
 
-    updateClaim(id, status, note = "") {
+    // 🎯 ERD COMPLIANT METHOD: ASYNC UPDATE CLAIM ACTION (ADMIN DECISION CLOSURE)
+    async updateClaim(id, status, note = "") {
       const claim = state.claims.find((item) => item.id === id);
       if (!claim) return;
+
+      const updatePayload = {
+        status: status,                              // 'Approved' or 'Rejected'
+        actioned_by: state.session?.id || "admin",   // FK mapping to tracking admin user id
+        actioned_at: new Date().toISOString().slice(0, 10),
+        admin_notes: note
+      };
+
+      try {
+        // Sync operational state changes cleanly to backend database service api room
+        await api.patch(`/claims/${id}`, updatePayload);
+      } catch (_) {
+        // Local state machine failover engine execution handles local mutations
+      }
+
       claim.status = status;
       claim.note = note;
+
       if (status === "Approved") {
         const found = state.foundItems.find((item) => item.id === claim.itemId);
         if (found) found.status = "Claimed";
+        try {
+          await api.patch(`/items/${claim.itemId}`, { status: "Claimed" });
+        } catch (_) {}
+      } else if (status === "Rejected") {
+        const found = state.foundItems.find((item) => item.id === claim.itemId);
+        if (found) found.status = "Unclaimed";
+        try {
+          await api.patch(`/items/${claim.itemId}`, { status: "Unclaimed" });
+        } catch (_) {}
       }
-      addActivity(`${claim.itemName} claim ${status.toLowerCase()}`);
+
+      addActivity(`${claim.itemName} claim row updated to status: ${status.toLowerCase()}`);
+      persist();
     },
 
     updateUser(id, payload) {

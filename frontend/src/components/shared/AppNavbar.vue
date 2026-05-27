@@ -14,7 +14,8 @@ const userLinks = [
   ["/browse", "Browse"],
   ["/report-lost", "Report Lost"],
   ["/report-found", "Report Found"],
-  ["/my-reports", "My Reports"]
+  ["/my-reports", "My Reports"],
+  ["/my-claims", "My Claims"] // 🚀 ADDED: The link entry for your students!
 ];
 
 const adminLinks = [
