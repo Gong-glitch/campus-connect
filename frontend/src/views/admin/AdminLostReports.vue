@@ -11,18 +11,17 @@ const rows = ref([]);
 const errorMessage = ref("");
 
 function mapRow(raw) {
-  // 📸 Extract the image value from your backend schema fields
-  let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
+  // 📸 Match the exact Laravel 'image_path' model attribute key directly
+  let rawPath = raw.image_path || raw.photo || raw.image || null;
   let finalPhotoUrl = null;
 
   if (rawPath) {
     if (rawPath.startsWith('http')) {
       finalPhotoUrl = rawPath;
     } else {
-      // 1️⃣ Clean up external formatting symbols or initial slash marks
+      // Strip any accidental leading slashes or nested directory headers
       let cleanPath = rawPath.trim().replace(/^\//, '');
 
-      // 2️⃣ Remove root folder duplicates if present in the database string
       if (cleanPath.startsWith('public/storage/')) {
         cleanPath = cleanPath.substring(15);
       } else if (cleanPath.startsWith('storage/')) {
@@ -31,7 +30,7 @@ function mapRow(raw) {
         cleanPath = cleanPath.substring(11);
       }
 
-      // 3️⃣ Combine the live API route with the verified folder path structure
+      // Point directly to your active Render API asset route gateway
       finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/storage/${cleanPath}`;
     }
   }
@@ -143,6 +142,7 @@ const columns = [
           <h2 class="text-lg font-bold text-dark">Lost Report Details</h2>
           <button class="rounded-md p-1 text-muted hover:bg-light" @click="selected = null"><X class="h-5 w-5" /></button>
         </div>
+
         <div class="space-y-3 px-5 py-5 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-3">
             <div><p class="label">Item Name</p><p class="mt-0.5 font-medium text-dark">{{ selected.name }}</p></div>
