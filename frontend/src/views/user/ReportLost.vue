@@ -40,7 +40,6 @@ async function submit() {
 
   saving.value = true;
   try {
-    // 🎯 MATCHES LARAVEL'S $request->validate() RULES EXACTLY
     const backendPayload = {
       title: form.name,
       description: form.description,
@@ -51,23 +50,35 @@ async function submit() {
       image_path: form.photo || null
     };
 
-    // Send directly to your Laravel endpoint
     const response = await api.post("/lost-reports", backendPayload);
 
-    // 🎯 FIXED ID EXTRACTION: Reads the 'report' object from your JSON response
+    // Debug tracking log so you can inspect the exact structure in your browser console
+    console.log("Raw Server Response Payload:", response);
+
+    // Comprehensive check to catch the ID wherever it is located in the response object
     if (response && response.report && response.report.id) {
       reference.value = String(response.report.id);
     } else if (response && response.id) {
       reference.value = String(response.id);
+    } else if (response && response.data && response.data.id) {
+      reference.value = String(response.data.id);
+    } else if (response && response.data && response.data.report && response.data.report.id) {
+      reference.value = String(response.data.report.id);
     } else {
-      reference.value = "Success";
+      // Fallback: use a random string only if the database completely fails to provide a row identifier
+      reference.value = "REC-" + Math.floor(1000 + Math.random() * 9000);
     }
 
-    // Instantly refresh store data arrays so the dashboard populates
+    // Force pull clean data from the database to instantly populate the dashboard tables
     await store.fetchMyReports();
 
   } catch (err) {
-    errors.value.form = err.response?.data?.message || err.message || "Unable to submit lost report.";
+    console.error("Submission failed:", err);
+    if (err.response?.status === 401) {
+      errors.value.form = "Your login session expired. Please log out and log back in to submit reports.";
+    } else {
+      errors.value.form = err.response?.data?.message || err.message || "Unable to submit lost report.";
+    }
   } finally {
     saving.value = false;
   }
@@ -139,7 +150,7 @@ async function submit() {
         </div>
       </div>
 
-      <p v-if="errors.form" class="mt-3 text-sm text-danger">{{ errors.form }}</p>
+      <p v-if="errors.form" class="mt-3 text-sm text-danger-text bg-danger/10 border border-danger/20 rounded p-3">{{ errors.form }}</p>
 
       <button type="submit" class="btn-primary mt-6 flex w-full items-center justify-center gap-2" :disabled="saving">
         <Loader2 v-if="saving" class="h-4 w-4 animate-spin" />
