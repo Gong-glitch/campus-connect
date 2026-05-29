@@ -41,16 +41,22 @@ export const router = createRouter({
   ],
 });
 
-// 🛡️ SECURITY ROUTE GUARD: Stops automatic redirects and handles route boundaries gracefully
+// 🛡️ REWRITTEN MASTER GUARD: Breaks all automatic frontend loops instantly
 router.beforeEach((to, from, next) => {
-  const hasToken = !!getToken();
-
-  // If trying to access admin setup while already holding an active session, let it stay on login/dashboard instead
-  if (to.path === "/admin/setup" && hasToken) {
-    return next("/admin/claims");
+  // 1. FORCE ALLOW LOGIN: If trying to access admin login, immediately pass through.
+  // This blocks any component mounted logic from hijacking your URL back to setup!
+  if (to.path === "/admin/login") {
+    return next();
   }
 
-  // Simply let the request pass through natively without intercepting loops
+  const hasToken = !!getToken();
+
+  // 2. If trying to access admin setup while already holding an active token session, land on dashboard instead
+  if (to.path === "/admin/setup" && hasToken) {
+    return next("/admin/dashboard");
+  }
+
+  // 3. Otherwise, proceed completely normally without intercepting loops
   next();
 });
 
