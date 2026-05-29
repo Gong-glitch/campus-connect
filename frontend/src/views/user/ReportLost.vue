@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-vue-next";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ImageUploader from "../../components/shared/ImageUploader.vue";
 import { useStore } from "../../composables/useStore";
-import axios from "axios"; // 🎯 Using direct clean axios to bypass base URL issues
+import { api } from "../../services/api"; // 🎯 Reverted to your built-in API client
 import { sanitizeReportPayload } from "../../utils/inputProtection";
 
 const store = useStore();
@@ -44,39 +44,38 @@ async function submit() {
       image_path: form.photo || null
     };
 
-    // 🎯 GET AUTH TOKEN: Grab the login token your system stored in localStorage
-    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+    // 🎯 Hit your backend controller API route endpoint securely
+    const response = await api.post("/lost-reports", backendPayload);
 
-    // 🎯 DIRECT ROUTE: explicitly target your Render backend endpoint
-    const response = await axios.post(
-      "https://campus-connect-3s6n.onrender.com/api/lost-reports", 
-      backendPayload,
-      {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          Accept: "application/json"
-        }
-      }
-    );
+    console.log("Unwrapped Interceptor Response Structure:", response);
 
-    console.log("Direct Backend Connection Response:", response.data);
+    // 🎯 Extraction mapping targeted directly to your Laravel JSON payload keys
+    let trueDatabaseId = null;
 
-    // Read the true saved database ID from your Laravel controller wrapper
-    if (response.data && response.data.report && response.data.report.id) {
-      reference.value = String(response.data.report.id);
+    if (response?.report?.id) {
+      trueDatabaseId = response.report.id;
+    } else if (response?.data?.report?.id) {
+      trueDatabaseId = response.data.report.id;
+    } else if (response?.id) {
+      trueDatabaseId = response.id;
+    }
 
-      // Update global store values instantly
-      if (typeof store.fetchMyReports === "function") {
+    if (trueDatabaseId) {
+      reference.value = String(trueDatabaseId);
+
+      // Instantly call the central store lifecycle function to pull new database rows
+      if (store && typeof store.fetchMyReports === "function") {
         await store.fetchMyReports();
       }
     } else {
-      throw new Error("Server processed request but failed to save row record.");
+      // Gracefully prevent false success screens if the token drops or interceptor outputs an empty block {}
+      throw new Error("Server processed the submission but did not pass back a valid entry ID.");
     }
 
   } catch (err) {
-    console.error("Submission processing error:", err);
-    // Show the real system error on screen instead of faking a success page!
-    errors.value.form = err.response?.data?.message || err.message || "Could not connect to the remote server.";
+    console.error("Lost Report Submission Error Context:", err);
+    // Display the absolute raw server error text on the screen layout so you see exactly what's wrong
+    errors.value.form = err.response?.data?.message || err.message || "Authentication token missing or invalid.";
   } finally {
     saving.value = false;
   }
@@ -87,9 +86,9 @@ async function submit() {
   <AppNavbar role="user" />
   <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
 
-    <section v-if="reference && !reference.startsWith('REC-')" class="rounded-md bg-white p-8 text-center shadow-soft">
+    <section v-if="reference" class="rounded-md bg-white p-8 text-center shadow-soft">
       <h1 class="text-3xl font-bold text-primary">Thank you for reporting a lost item</h1>
-      <p class="mt-3 text-muted">Your report has been received and saved to the database.</p>
+      <p class="mt-3 text-muted">Your report has been successfully recorded in the campus database.</p>
       <p class="mt-3 text-muted">Reference Number</p>
       <p class="mt-1 text-2xl font-bold text-dark">#{{ reference }}</p>
 
