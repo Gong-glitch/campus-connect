@@ -54,7 +54,7 @@ async function loadDashboardData() {
       localFoundReports.value = [];
     }
 
-    // Sync with the store fallbacks
+    // Sync back with global store fallbacks
     if (store && store.state) {
       store.state.lostReports = localLostReports.value;
       store.state.foundReports = localFoundReports.value;
@@ -82,7 +82,7 @@ async function remove() {
     await loadDashboardData();
   } catch (err) {
     alert(err.message || "Failed to delete report.");
-  } finaly {
+  } finally {
     deleteLoading.value = false;
   }
 }
