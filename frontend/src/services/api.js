@@ -1,21 +1,16 @@
-// 🌍 Automatically switches environments depending on where the app is running:
-// Local Dev (Replit): uses "/api" (Vite proxy handles it)
-// Production (Render): uses your absolute live URL
+// 🌍 Switches seamlessly between your development environment and your true Render container!
 const BASE = import.meta.env.DEV
   ? "/api"
-  : "https://campus-connect-3s6n.onrender.com/api";
+  : "https://campus-connect-api-0s3b.onrender.com/api"; // 🎯 Your live API endpoint
 
-// 🔍 Matches your exact key found in your Local Storage
+// 🔍 Matches your local storage session tracking key
 const TOKEN_KEY = "campus-lost-found-csu-v2";
 
 export function getToken() {
   try {
     const dataString = localStorage.getItem(TOKEN_KEY);
     if (!dataString) return null;
-
     const parsedData = JSON.parse(dataString);
-
-    // Safely checks if the token is nested under 'session.token' or 'token' directly
     if (parsedData.session && parsedData.session.token) {
       return parsedData.session.token;
     }
@@ -30,12 +25,10 @@ export function setToken(token) {
   try {
     const dataString = localStorage.getItem(TOKEN_KEY) || "{}";
     const parsedData = JSON.parse(dataString);
-
     if (!parsedData.session) parsedData.session = {};
-
     if (token) {
       parsedData.session.token = token;
-      parsedData.token = token; // Backup placement
+      parsedData.token = token;
       localStorage.setItem(TOKEN_KEY, JSON.stringify(parsedData));
     } else {
       if (parsedData.session) delete parsedData.session.token;
@@ -64,7 +57,6 @@ async function request(method, path, body) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  // 🎯 FIXED: Read the response as text first to protect against stream reading failures
   const responseText = await res.text().catch(() => "");
 
   let data = {};
@@ -72,7 +64,8 @@ async function request(method, path, body) {
     try {
       data = JSON.parse(responseText);
     } catch (e) {
-      console.error("Failed to parse server JSON response:", responseText);
+      console.error("Server returned non-JSON text:", responseText);
+      throw new Error("Target API route misconfigured or returned HTML.");
     }
   }
 
@@ -83,7 +76,6 @@ async function request(method, path, body) {
   return data;
 }
 
-// ✅ Explicitly exported so 'src/store/appStore.js' can import it perfectly!
 export const api = {
   get: (path) => request("GET", path),
   post: (path, body) => request("POST", path, body),
@@ -92,18 +84,12 @@ export const api = {
   delete: (path) => request("DELETE", path),
 
   async upload(file) {
-    const headers = {
-      Accept: "application/json",
-    };
-
-    // 🔑 Inject the auth token parsed from your local storage session object
+    const headers = { Accept: "application/json" };
     const token = getToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     const body = new FormData();
-    body.append("image", file); // Matches your backend Laravel expectation ($request->file('image'))
+    body.append("image", file);
 
     const res = await fetch(`${BASE}/upload`, {
       method: "POST",
@@ -122,6 +108,6 @@ export const api = {
     if (!res.ok) {
       throw new Error(data.message || `Upload failed (${res.status}).`);
     }
-    return data.url; // Returns the permanent cloud/backend url link
+    return data.url;
   },
 };
