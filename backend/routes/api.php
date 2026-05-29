@@ -57,9 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin Claims Controls
     Route::get('/admin/claims', [ClaimController::class, 'index']);
-
-    // 🛠️ FIX: Route updated from /admin/claims/{id}/status to /claims/{id} to match frontend patch action
     Route::patch('/claims/{id}', [ClaimController::class, 'updateStatus']);
+    Route::delete('/claims/{id}', [ClaimController::class, 'destroy']);
 
     // Image Upload Pipeline
     Route::post('/upload', [UploadController::class, 'upload']);
@@ -75,9 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // ==========================================
 
 // 🖼️ FREE TIER IMAGE STREAMER: Bypasses Render's filesystem restrictions entirely!
-// Matches any path coming through /api/storage/... and securely pipes the binary file data
 Route::get('/storage/{path}', function($path) {
-    // Look directly inside Laravel's local public storage disk
     $fullPath = storage_path('app/public/' . $path);
 
     if (!file_exists($fullPath) || is_dir($fullPath)) {
@@ -88,7 +85,7 @@ Route::get('/storage/{path}', function($path) {
     $type = mime_content_type($fullPath);
 
     return response($file)->header('Content-Type', $type);
-})->where('path', '.*'); // Regex wildcard so it grabs subdirectories like 'items/abc.png'
+})->where('path', '.*');
 
 // Temporary database utility to remove alpha-numeric test strings
 Route::get('/clean-db-junk', function() {

@@ -23,6 +23,21 @@ function reject() {
   rejecting.value = null;
   note.value = "";
 }
+
+async function handleDeleteClaim(id) {
+  if (confirm("Are you sure you want to permanently delete this claim listing?")) {
+    try {
+      if (store.deleteClaim) {
+        await store.deleteClaim(id);
+      } else {
+        // Fallback option to clear state layout locally if your store has custom names
+        await store.updateClaim(id, "Deleted");
+      }
+    } catch (err) {
+      console.error("Error discarding claim entity reference:", err);
+    }
+  }
+}
 </script>
 
 <template>
@@ -43,6 +58,9 @@ function reject() {
         <div class="flex gap-2">
           <button class="btn-secondary px-3 py-1.5" @click="store.updateClaim(row.id, 'Approved')">Approve</button>
           <button class="btn-danger px-3 py-1.5" @click="rejecting = row">Reject</button>
+          <button class="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded text-sm px-3 py-1.5 transition-colors" @click="handleDeleteClaim(row.id)">
+            Delete
+          </button>
         </div>
       </template>
     </AdminTable>

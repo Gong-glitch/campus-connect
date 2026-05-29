@@ -20,14 +20,12 @@ class ClaimController extends Controller
 
         $item = Item::findOrFail($validated['item_id']);
 
-        // Check if item status equals 'Found' before allowing submittals
         if ($item->status !== 'Found') {
             return response()->json([
                 'message' => 'This item cannot be claimed. Current item state: ' . $item->status
             ], 422);
         }
 
-        // Prevent a student from creating duplicate active claims on the same item
         $hasDuplicate = Claim::where('item_id', $item->id)
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['Pending', 'Approved'])
@@ -103,11 +101,9 @@ class ClaimController extends Controller
 
         $claim->update($validated);
 
-        // If the claim is approved, mark the item as 'Resolved'
         if ($claim->status === 'Approved') {
             $claim->item->update(['status' => 'Resolved']);
 
-            // Auto-reject competing pending claims for this specific item
             Claim::where('item_id', $claim->item_id)
                 ->where('id', '!=', $claim->id)
                 ->where('status', 'Pending')
@@ -120,6 +116,23 @@ class ClaimController extends Controller
         return response()->json([
             'message' => 'Claim record updated to ' . $claim->status . ' status conditions successfully.',
             'claim'   => $claim
+        ], 200);
+    }
+
+    /**
+     * Admin: Permanently delete a claim entry from the system database.
+     */
+    public function destroy(Request $request, $id)
+    {
+        if ($request->user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized admin operation context.'], 403);
+        }
+
+        $claim = Claim::findOrFail($id);
+        $claim->delete();
+
+        return response()->json([
+            'message' => 'Claim entry record dropped successfully.'
         ], 200);
     }
 }
