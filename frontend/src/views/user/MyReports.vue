@@ -25,9 +25,10 @@ const activeReports = computed(() => {
 async function loadDashboardData() {
   loading.value = true;
   try {
+    // 🎯 Fixed to point to the correct Laravel query parameter endpoints
     const [lostRaw, foundRaw] = await Promise.all([
-      api.get("/my-reports/lost"),
-      api.get("/my-reports/found")
+      api.get("/lost-reports?mine=1"),
+      api.get("/items?mine=1")
     ]);
 
     // Handle Lost Reports unpacking safely
