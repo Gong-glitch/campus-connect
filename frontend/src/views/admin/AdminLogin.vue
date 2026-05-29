@@ -1,37 +1,40 @@
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "../../composables/useStore";
 import { isValidEmail, sanitizeEmail } from "../../utils/inputProtection";
-import { Eye, EyeOff } from "lucide-vue-next"; // 🚀 ADDED: Icons for password toggle
+import { Eye, EyeOff } from "lucide-vue-next"; // 🚀 Icons for password toggle
 
 const store = useStore();
 const router = useRouter();
 const error = ref("");
-const showPassword = ref(false); // 🚀 ADDED: Reactive state to track password visibility
+const isLoading = ref(false);
+const showPassword = ref(false); // 🚀 Reactive state to track password visibility
 
 // ✅ Inputs are completely empty and clean
 const form = reactive({ email: "", password: "" });
 
-onMounted(() => {
-  try {
-    const hasAdmin = store.state.users.some((u) => u.role === "admin");
-    if (!hasAdmin) {
-      router.replace("/admin/setup");
-    }
-  } catch (err) {
-    error.value = "Unable to verify admin status.";
-  }
-});
+// 🔓 FIXED: Removed the onMounted loop trigger that checked an empty local array!
 
-function login() {
+async function login() {
   try {
+    error.value = "";
     form.email = sanitizeEmail(form.email);
-    if (!isValidEmail(form.email) || !form.password) throw new Error("Enter valid admin credentials.");
-    store.login(form.email, form.password, "admin");
+
+    if (!isValidEmail(form.email) || !form.password) {
+      throw new Error("Enter valid admin credentials.");
+    }
+
+    isLoading.value = true;
+
+    // 🖥️ 1. Send authentication payload to your live backend server database
+    await store.login(form.email, form.password, "admin");
+
+    // 🚀 2. Navigate straight to the dashboard once the live backend validates you!
     router.push("/admin/dashboard");
   } catch (err) {
-    error.value = err.message;
+    isLoading.value = false;
+    error.value = err.response?.data?.message || err.message || "Invalid email or password.";
   }
 }
 </script>
@@ -44,7 +47,7 @@ function login() {
       <div class="mt-6 space-y-4">
         <label class="block">
           <span class="label">Email</span>
-          <input v-model="form.email" class="field mt-1" type="email" placeholder="admin@carsu.edu.ph" />
+          <input v-model="form.email" class="field mt-1" type="email" placeholder="admin@carsu.edu.ph" :disabled="isLoading" required />
         </label>
 
         <label class="block">
@@ -54,6 +57,8 @@ function login() {
               v-model="form.password" 
               class="field pr-11" 
               :type="showPassword ? 'text' : 'password'" 
+              :disabled="isLoading"
+              required
             />
             <button 
               type="button" 
@@ -69,7 +74,10 @@ function login() {
 
       <p v-if="error" class="mt-3 text-sm text-danger">{{ error }}</p>
 
-      <button class="btn-primary mt-6 w-full">Login as Admin</button>
+      <button class="btn-primary mt-6 w-full flex items-center justify-center" :disabled="isLoading">
+        <span v-if="isLoading">Logging in...</span>
+        <span v-else>Login as Admin</span>
+      </button>
       <RouterLink class="mt-4 block text-center text-sm font-semibold text-primary" to="/login">Student login</RouterLink>
     </form>
   </main>
