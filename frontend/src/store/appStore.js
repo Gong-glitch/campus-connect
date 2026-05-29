@@ -12,6 +12,8 @@ import {
 import { api, getToken, setToken } from "../services/api";
 
 const STORAGE_KEY = "campus-lost-found-csu-v2";
+// 🎯 Explicitly map image assets to your live Render backend API domain
+const BACKEND_BASE = "https://campus-connect-api-0s3b.onrender.com";
 
 const categories = ["Electronics", "Keys", "ID", "Clothing", "Bag", "Others"];
 const defaultLocations = [
@@ -45,7 +47,6 @@ function loadState() {
   const saved = raw ? JSON.parse(raw) : null;
   const base = saved ? { ...initialData, ...saved } : { ...initialData };
 
-  // 🎯 FIXED: Ensure the state picks up the session properly on reload
   if (base.session && !getToken()) {
     base.session = null;
   }
@@ -55,7 +56,17 @@ function loadState() {
   return base;
 }
 
+// 🖼️ Re-routed to fetch images natively from your Render Backend Storage folder
+function formatImagePath(photoUrl) {
+  if (photoUrl && !photoUrl.startsWith("http")) {
+    const cleanPath = photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`;
+    return `${BACKEND_BASE}${cleanPath}`;
+  }
+  return photoUrl;
+}
+
 function mapItem(raw) {
+  const photoUrl = formatImagePath(raw.image_path);
   return {
     id: raw.id,
     name: raw.title ?? raw.name ?? "",
@@ -63,9 +74,7 @@ function mapItem(raw) {
     location: raw.location ?? "",
     status: raw.status ?? "Unclaimed",
     description: raw.description ?? "",
-    photo:
-      raw.image_path ||
-      `https://placehold.co/640x420/e8f5ee/1b6b3a?text=${encodeURIComponent(raw.title ?? raw.name ?? "Item")}`,
+    photo: photoUrl || `https://placehold.co/640x420/e8f5ee/1b6b3a?text=${encodeURIComponent(raw.title ?? raw.name ?? "Item")}`,
     reportedBy: raw.user?.name ?? "Admin",
     date: (raw.found_date ?? raw.created_at ?? raw.date ?? "").slice(0, 10),
     contactEmail: raw.contact_email ?? "",
@@ -80,7 +89,7 @@ function mapLostReport(raw) {
     location: raw.location ?? "",
     date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
     description: raw.description ?? "",
-    photo: raw.image_path || "",
+    photo: formatImagePath(raw.image_path) || "",
     status: raw.status ?? "Open",
     contactEmail: raw.contact_email ?? "",
     reportedBy: raw.user?.name ?? "",
@@ -95,7 +104,7 @@ function mapFoundReport(raw) {
     location: raw.location ?? "",
     date: raw.found_date || raw.date_lost || (raw.created_at ?? "").slice(0, 10),
     description: raw.description ?? "",
-    photo: raw.image_path || "",
+    photo: formatImagePath(raw.image_path) || "",
     status: raw.status ?? "Pending Approval",
     contactEmail: raw.contact_email ?? "",
     reportedBy: raw.user?.name ?? "",
@@ -171,16 +180,20 @@ export function createAppStore() {
       return mapItem(raw);
     },
 
+    // 🎯 FIX A APPLIED: Safely query user data with independent safety hooks to handle 401 statuses gracefully
     async fetchMyReports() {
       try {
-        const [lostRaw, foundRaw] = await Promise.all([
-          api.get("/my-lost-reports"),
-          api.get("/my-found-reports"), 
-        ]);
+        const lostRaw = await api.get("/my-lost-reports").catch(() => []);
         state.lostReports = Array.isArray(lostRaw) ? lostRaw.map(mapLostReport) : [];
+      } catch (_) {
+        state.lostReports = [];
+      }
+
+      try {
+        const foundRaw = await api.get("/my-found-reports").catch(() => []);
         state.foundReports = Array.isArray(foundRaw) ? foundRaw.map(mapFoundReport) : [];
-      } catch (err) {
-        console.error("Error fetching individual account reports:", err);
+      } catch (_) {
+        state.foundReports = [];
       }
     },
 
@@ -191,7 +204,6 @@ export function createAppStore() {
         role,
       });
 
-      // 🎯 FIXED: Save token to local storage BEFORE building session state
       const token = data.token || data.data?.token;
       setToken(token);
 
@@ -206,7 +218,6 @@ export function createAppStore() {
         role: user.role ?? role,
       };
 
-      // 🎯 CRITICAL FIXED STEP: Force state into Local Storage before browser changes page location
       persist(); 
 
       await this.fetchLocations();
@@ -245,7 +256,6 @@ export function createAppStore() {
       };
       addActivity(`${user.name ?? "User"} registered`);
 
-      // 🎯 CRITICAL FIXED STEP: Commit to storage immediately
       persist(); 
       window.location.href = "/home";
     },
