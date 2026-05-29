@@ -1,61 +1,88 @@
 <script setup>
-import { computed, reactive, ref, onMounted, inject } from "vue";
+import { computed, ref, onMounted, inject } from "vue";
 import { Loader2 } from "lucide-vue-next";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ConfirmDialog from "../../components/shared/ConfirmDialog.vue";
 import StatusBadge from "../../components/shared/StatusBadge.vue";
 import { appStoreKey } from "../../store/appStore";
+import { api } from "../../services/api";
 
-// 🎯 Directly inject your true application store to bypass the broken hook
 const store = inject(appStoreKey);
 
 const tab = ref("lost");
-const editing = ref(null);
+const loading = ref(true);
 const deleting = ref(null);
-const saveLoading = ref(false);
 const deleteLoading = ref(false);
-const saveError = ref("");
-const form = reactive({});
 
-// Map directly to your appStore's internal state arrays
-const lost = computed(() => store?.state?.lostReports || []);
-const found = computed(() => store?.state?.foundReports || []);
-const activeReports = computed(() => (tab.value === "lost" ? lost.value : found.value));
+const localLostReports = ref([]);
+const localFoundReports = ref([]);
 
-// Force load your authenticated personal reports on mount
-onMounted(() => {
-  if (store && typeof store.fetchMyReports === "function") {
-    store.fetchMyReports();
-  }
+const activeReports = computed(() => {
+  return tab.value === "lost" ? localLostReports.value : localFoundReports.value;
 });
 
-function edit(report) {
-  editing.value = report.id;
-  saveError.value = "";
-  Object.assign(form, report);
-}
-
-async function save() {
-  saveLoading.value = true;
-  saveError.value = "";
+// Directly fetch data inside the component to handle nested Laravel formats smoothly
+async function loadDashboardData() {
+  loading.value = true;
   try {
-    await store.updateReport(tab.value, editing.value, { ...form });
-    editing.value = null;
+    const [lostRaw, foundRaw] = await Promise.all([
+      api.get("/my-reports/lost"),
+      api.get("/my-reports/found")
+    ]);
+
+    // Handle Lost Reports unpacking safely
+    if (Array.isArray(lostRaw)) {
+      localLostReports.value = lostRaw;
+    } else if (lostRaw && Array.isArray(lostRaw.reports)) {
+      localLostReports.value = lostRaw.reports;
+    } else if (lostRaw && Array.isArray(lostRaw.data)) {
+      localLostReports.value = lostRaw.data;
+    } else {
+      localLostReports.value = [];
+    }
+
+    // Handle Found Reports unpacking safely
+    if (Array.isArray(foundRaw)) {
+      localFoundReports.value = foundRaw;
+    } else if (foundRaw && Array.isArray(foundRaw.reports)) {
+      localFoundReports.value = foundRaw.reports;
+    } else if (foundRaw && Array.isArray(foundRaw.items)) {
+      localFoundReports.value = foundRaw.items;
+    } else if (foundRaw && Array.isArray(foundRaw.data)) {
+      localFoundReports.value = foundRaw.data;
+    } else {
+      localFoundReports.value = [];
+    }
+
+    // Sync with the store fallbacks
+    if (store && store.state) {
+      store.state.lostReports = localLostReports.value;
+      store.state.foundReports = localFoundReports.value;
+    }
+
   } catch (err) {
-    saveError.value = err.message || "Failed to save changes.";
+    console.error("Dashboard engine query error:", err);
   } finally {
-    saveLoading.value = false;
+    loading.value = false;
   }
 }
+
+onMounted(() => {
+  loadDashboardData();
+});
 
 async function remove() {
   deleteLoading.value = true;
   try {
-    await store.deleteReport(tab.value, deleting.value.id);
+    const type = tab.value;
+    const id = deleting.value.id;
+    const endpoint = type === "lost" ? `/lost-reports/${id}` : `/items/${id}`;
+    await api.delete(endpoint);
     deleting.value = null;
+    await loadDashboardData();
   } catch (err) {
     alert(err.message || "Failed to delete report.");
-  } finally {
+  } finaly {
     deleteLoading.value = false;
   }
 }
@@ -83,40 +110,25 @@ async function remove() {
       </button>
     </div>
 
-    <div class="mt-6 grid gap-4">
-      <article v-for="report in activeReports" :key="report.id" class="rounded-md bg-white p-5 shadow-soft">
-        <template v-if="editing === report.id">
-          <div class="grid gap-3 sm:grid-cols-2">
-            <input v-model="form.name" class="field" placeholder="Item name" />
-            <input v-model="form.date" class="field" type="date" />
-            <textarea v-model="form.description" class="field sm:col-span-2" placeholder="Item description" />
-          </div>
-          <p v-if="saveError" class="mt-2 text-sm text-danger">{{ saveError }}</p>
-          <div class="mt-4 flex gap-2">
-            <button class="btn-primary flex items-center gap-2" :disabled="saveLoading" @click="save">
-              <Loader2 v-if="saveLoading" class="h-4 w-4 animate-spin" />
-              {{ saveLoading ? "Saving…" : "Save" }}
-            </button>
-            <button class="btn-secondary" @click="editing = null">Cancel</button>
-          </div>
-        </template>
+    <div v-if="loading" class="mt-12 flex justify-center items-center">
+      <Loader2 class="h-8 w-8 animate-spin text-primary" />
+    </div>
 
-        <template v-else>
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 class="text-xl font-bold text-dark">{{ report.name || report.title || "Unnamed Item" }}</h2>
-              <p class="text-sm text-muted">
-                {{ report.date || report.found_date || report.date_lost || "No Date" }} / {{ report.location || "Unknown Location" }}
-              </p>
-            </div>
-            <StatusBadge :status="report.status" />
+    <div v-else class="mt-6 grid gap-4">
+      <article v-for="report in activeReports" :key="report.id" class="rounded-md bg-white p-5 shadow-soft">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-dark">{{ report.name || report.title || "Unnamed Item" }}</h2>
+            <p class="text-sm text-muted">
+              {{ report.date || report.found_date || report.date_lost || "No Date" }} / {{ report.location || "Unknown Location" }}
+            </p>
           </div>
-          <p class="mt-3 text-sm text-muted">{{ report.description }}</p>
-          <div class="mt-4 flex gap-2">
-            <button class="btn-secondary" @click="edit(report)">Edit</button>
-            <button class="btn-danger" @click="deleting = report">Delete</button>
-          </div>
-        </template>
+          <StatusBadge :status="report.status" />
+        </div>
+        <p class="mt-3 text-sm text-muted">{{ report.description }}</p>
+        <div class="mt-4 flex gap-2">
+          <button class="btn-danger" @click="deleting = report">Delete</button>
+        </div>
       </article>
 
       <p v-if="!activeReports.length" class="rounded-md bg-white p-8 text-center text-muted shadow-soft">
