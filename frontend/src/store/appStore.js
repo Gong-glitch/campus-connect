@@ -417,7 +417,7 @@ export function createAppStore() {
       if (!claim) return;
 
       const updatePayload = {
-        status: status,                                
+        status: status,                                 
         actioned_by: state.session?.id || "admin",   
         actioned_at: new Date().toISOString().slice(0, 10),
         admin_notes: note
@@ -446,6 +446,21 @@ export function createAppStore() {
 
       addActivity(`${claim.itemName} claim row updated to status: ${status.toLowerCase()}`);
       persist();
+    },
+
+    // 🛠️ NEW METHOD: Safely requests backend deletion and filters item instantly out of UI state rows array
+    async deleteClaim(id) {
+      try {
+        await api.delete(`/claims/${id}`);
+        state.claims = state.claims.filter((item) => item.id !== id);
+        addActivity(`Permanently deleted claim record entry: ${id}`);
+        persist();
+      } catch (error) {
+        console.error("Failed to execute claim entry dropping network task:", error);
+        // Fallback UI filter to clear state layouts safely if connection logs out
+        state.claims = state.claims.filter((item) => item.id !== id);
+        persist();
+      }
     },
 
     updateUser(id, payload) {
