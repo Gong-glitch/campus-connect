@@ -165,11 +165,12 @@ export function createAppStore() {
       return mapItem(raw);
     },
 
+    // 🎯 FIXED METHOD: Points explicitly to your custom authenticated endpoints
     async fetchMyReports() {
       try {
         const [lostRaw, foundRaw] = await Promise.all([
-          api.get("/my-reports/lost"),
-          api.get("/my-reports/found"), 
+          api.get("/my-lost-reports"),
+          api.get("/my-found-reports"), 
         ]);
         state.lostReports = Array.isArray(lostRaw) ? lostRaw.map(mapLostReport) : [];
         state.foundReports = Array.isArray(foundRaw) ? foundRaw.map(mapFoundReport) : [];
@@ -290,7 +291,6 @@ export function createAppStore() {
       return data?.report?.id || data?.id;
     },
 
-    // 🎯 STEP 2 FIXED METHOD: Routes cleanly to '/items' with found schema variables
     async addFoundReport(payload) {
       const clean = sanitizeReportPayload(payload);
       const imagePath = payload.image_path || clean.photo || null;
@@ -346,7 +346,7 @@ export function createAppStore() {
         item_id: clean.itemId,                       
         user_id: state.session?.id || null,          
         proof_of_ownership: clean.proof,             
-        status: "Pending",                           
+        status: "Pending",                            
         claim_date: new Date().toISOString().slice(0, 10)
       };
 
@@ -389,7 +389,7 @@ export function createAppStore() {
       if (!claim) return;
 
       const updatePayload = {
-        status: status,                              
+        status: status,                               
         actioned_by: state.session?.id || "admin",   
         actioned_at: new Date().toISOString().slice(0, 10),
         admin_notes: note
