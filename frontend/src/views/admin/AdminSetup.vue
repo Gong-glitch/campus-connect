@@ -23,7 +23,7 @@ async function submit() {
     const email = sanitizeEmail(form.email);
     const password = String(form.password ?? "");
 
-    // Validation checks
+    // Client-side validation checks
     if (!name) throw new Error("Name is required.");
     if (!schoolId) throw new Error("School ID is required."); 
     if (!isValidEmail(email)) throw new Error("Enter a valid email address.");
@@ -32,7 +32,7 @@ async function submit() {
 
     isLoading.value = true;
 
-    // 🖥️ Send payload directly to backend registration endpoint
+    // 🖥️ 1. Send multi-part registration payload directly to your live backend endpoint
     await store.createAdmin({
       name,
       schoolId,
@@ -40,9 +40,12 @@ async function submit() {
       password
     });
 
+    // 🚀 2. FIXED: Instructs the frontend view to automatically route to Login on database success
+    router.replace("/admin/login");
+
   } catch (err) {
     isLoading.value = false;
-    // Capture if server rejects registration (e.g., if an admin already exists)
+    // Captures live server database rejections (e.g., if an administrator row already exists)
     error.value = err.response?.data?.message || err.message || "Failed to create administrator account.";
   }
 }
