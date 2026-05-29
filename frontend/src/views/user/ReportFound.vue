@@ -13,8 +13,15 @@ const errors = ref({});
 const form = reactive({ name: "", category: "Electronics", description: "", location: "CCIS Building", date: "", contactEmail: "", photo: "" });
 
 async function submit() {
+  // 🛡️ Lock in the uploaded image URL string before sanitization runs
+  const securePhotoUrl = form.photo;
+
   const clean = sanitizeReportPayload(form);
   Object.assign(form, clean);
+
+  // 🛡️ Put the photo URL string safely back into your form object
+  form.photo = securePhotoUrl;
+
   errors.value = {};
   if (!form.name || form.name.length < 3) errors.value.name = "Item name must be at least 3 characters.";
   if (!form.description || form.description.length < 12) errors.value.description = "Description must be at least 12 characters.";
@@ -25,8 +32,28 @@ async function submit() {
 
   saving.value = true;
   try {
-    const id = await store.addFoundReport({ ...form });
-    reference.value = String(id);
+    // 🔀 MAP your frontend form keys to match your Laravel validation keys perfectly!
+    const backendPayload = {
+      title: form.name,
+      description: form.description,
+      category: form.category,
+      location: form.location,
+      date_lost: form.date,         // Maps frontend 'date' to backend 'date_lost'
+      contact_email: form.contactEmail, // Maps camelCase to snake_case
+      image_path: form.photo        // Maps frontend 'photo' to backend 'image_path'
+    };
+
+    // Send the correctly formatted payload to your store action
+    const response = await store.addFoundReport(backendPayload);
+
+    // ✅ Extract the ID from Laravel's custom JSON response wrapper ({ report: { id: ... } })
+    if (response && response.report) {
+      reference.value = String(response.report.id);
+    } else if (response && response.id) {
+      reference.value = String(response.id);
+    } else {
+      reference.value = "Success";
+    }
   } catch (err) {
     errors.value.form = err.message || "Unable to submit found report.";
   } finally {
