@@ -14,53 +14,21 @@ const loading = ref(true);
 const deleting = ref(null);
 const deleteLoading = ref(false);
 
-const localLostReports = ref([]);
-const localFoundReports = ref([]);
-
+// 🎯 FORCE COMPONENT TO LOOK DIRECTLY AT THE GLOBAL STORE REPOSITORIES
 const activeReports = computed(() => {
-  return tab.value === "lost" ? localLostReports.value : localFoundReports.value;
+  return tab.value === "lost" 
+    ? store.state.lostReports 
+    : store.state.foundReports;
 });
 
-// Directly fetch data inside the component to handle nested Laravel formats smoothly
+// Leverage global store actions to load data cleanly
 async function loadDashboardData() {
   loading.value = true;
   try {
-    // 🎯 Fixed to point to the correct Laravel query parameter endpoints
-    const [lostRaw, foundRaw] = await Promise.all([
-      api.get("/lost-reports?mine=1"),
-      api.get("/items?mine=1")
-    ]);
-
-    // Handle Lost Reports unpacking safely
-    if (Array.isArray(lostRaw)) {
-      localLostReports.value = lostRaw;
-    } else if (lostRaw && Array.isArray(lostRaw.reports)) {
-      localLostReports.value = lostRaw.reports;
-    } else if (lostRaw && Array.isArray(lostRaw.data)) {
-      localLostReports.value = lostRaw.data;
-    } else {
-      localLostReports.value = [];
+    if (store && typeof store.fetchMyReports === "function") {
+      // Calls the /my-lost-reports and /my-found-reports endpoints
+      await store.fetchMyReports();
     }
-
-    // Handle Found Reports unpacking safely
-    if (Array.isArray(foundRaw)) {
-      localFoundReports.value = foundRaw;
-    } else if (foundRaw && Array.isArray(foundRaw.reports)) {
-      localFoundReports.value = foundRaw.reports;
-    } else if (foundRaw && Array.isArray(foundRaw.items)) {
-      localFoundReports.value = foundRaw.items;
-    } else if (foundRaw && Array.isArray(foundRaw.data)) {
-      localFoundReports.value = foundRaw.data;
-    } else {
-      localFoundReports.value = [];
-    }
-
-    // Sync back with global store fallbacks
-    if (store && store.state) {
-      store.state.lostReports = localLostReports.value;
-      store.state.foundReports = localFoundReports.value;
-    }
-
   } catch (err) {
     console.error("Dashboard engine query error:", err);
   } finally {
@@ -118,11 +86,20 @@ async function remove() {
     <div v-else class="mt-6 grid gap-4">
       <article v-for="report in activeReports" :key="report.id" class="rounded-md bg-white p-5 shadow-soft">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-xl font-bold text-dark">{{ report.name || report.title || "Unnamed Item" }}</h2>
-            <p class="text-sm text-muted">
-              {{ report.date || report.found_date || report.date_lost || "No Date" }} / {{ report.location || "Unknown Location" }}
-            </p>
+          <div class="flex items-center gap-4">
+            <img 
+              v-if="report.photo" 
+              :src="report.photo" 
+              alt="Report image" 
+              class="h-16 w-16 rounded-md object-cover bg-gray-100"
+              @error="(e) => e.target.src = 'https://placehold.co/150?text=No+Image'"
+            />
+            <div>
+              <h2 class="text-xl font-bold text-dark">{{ report.name || "Unnamed Item" }}</h2>
+              <p class="text-sm text-muted">
+                {{ report.date || "No Date" }} / {{ report.location || "Unknown Location" }}
+              </p>
+            </div>
           </div>
           <StatusBadge :status="report.status" />
         </div>
@@ -132,7 +109,7 @@ async function remove() {
         </div>
       </article>
 
-      <p v-if="!activeReports.length" class="rounded-md bg-white p-8 text-center text-muted shadow-soft">
+      <p v-if="!activeReports || !activeReports.length" class="rounded-md bg-white p-8 text-center text-muted shadow-soft">
         No reports yet.
       </p>
     </div>
