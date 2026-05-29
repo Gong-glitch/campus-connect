@@ -1,12 +1,14 @@
 <script setup>
-import { computed, reactive, ref, onMounted } from "vue";
+import { computed, reactive, ref, onMounted, inject } from "vue";
 import { Loader2 } from "lucide-vue-next";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ConfirmDialog from "../../components/shared/ConfirmDialog.vue";
 import StatusBadge from "../../components/shared/StatusBadge.vue";
-import { useStore } from "../../composables/useStore";
+import { appStoreKey } from "../../store/appStore";
 
-const store = useStore();
+// 🎯 Directly inject your true application store to bypass the broken hook
+const store = inject(appStoreKey);
+
 const tab = ref("lost");
 const editing = ref(null);
 const deleting = ref(null);
@@ -15,12 +17,17 @@ const deleteLoading = ref(false);
 const saveError = ref("");
 const form = reactive({});
 
-// Reports come from the API — already filtered to the current user
-const lost = computed(() => store.state.lostReports);
-const found = computed(() => store.state.foundReports);
+// Map directly to your appStore's internal state arrays
+const lost = computed(() => store?.state?.lostReports || []);
+const found = computed(() => store?.state?.foundReports || []);
 const activeReports = computed(() => (tab.value === "lost" ? lost.value : found.value));
 
-onMounted(() => store.fetchMyReports());
+// Force load your authenticated personal reports on mount
+onMounted(() => {
+  if (store && typeof store.fetchMyReports === "function") {
+    store.fetchMyReports();
+  }
+});
 
 function edit(report) {
   editing.value = report.id;
@@ -99,7 +106,7 @@ async function remove() {
             <div>
               <h2 class="text-xl font-bold text-dark">{{ report.name || report.title || "Unnamed Item" }}</h2>
               <p class="text-sm text-muted">
-                {{ report.date || report.date_lost || report.found_date || "No Date Saved" }} / {{ report.location || "Unknown Location" }}
+                {{ report.date || report.found_date || report.date_lost || "No Date" }} / {{ report.location || "Unknown Location" }}
               </p>
             </div>
             <StatusBadge :status="report.status" />
