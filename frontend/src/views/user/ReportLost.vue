@@ -1,14 +1,15 @@
 <script setup>
 import { reactive, ref } from "vue";
-import { useRouter } from "vue-router"; // 🎯 Imported router for safe navigation
+import { useRouter } from "vue-router"; 
 import { Loader2 } from "lucide-vue-next";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ImageUploader from "../../components/shared/ImageUploader.vue";
 import { useStore } from "../../composables/useStore";
+import { api } from "../../services/api"; // 🎯 Direct API engine import
 import { isValidEmail, sanitizeReportPayload } from "../../utils/inputProtection";
 
 const store = useStore();
-const router = useRouter(); // 🎯 Initialized router context
+const router = useRouter(); 
 
 const reference = ref("");
 const saving = ref(false);
@@ -31,6 +32,7 @@ async function submit() {
 
   saving.value = true;
   try {
+    // 🎯 Construct clean variables explicitly mapped to Laravel table migration columns
     const backendPayload = {
       title: form.name,
       name: form.name,                  
@@ -40,20 +42,26 @@ async function submit() {
       found_date: form.date,            
       contact_email: form.contactEmail,
       image_path: form.photo || "",
-      status: "Found" // 🎯 CRUCIAL FIX: Matches Laravel's single-table filtering logic perfectly!
+      status: "Found" 
     };
 
-    const response = await store.addFoundReport(backendPayload);
+    // 🎯 Send directly to backend via Axios module with session cookie integration
+    const response = await api.post("/items", backendPayload);
 
-    if (response && response.report) {
-      reference.value = String(response.report.id);
-    } else if (response && response.id) {
-      reference.value = String(response.id);
+    // Read generated database primary key securely from variant server wrapper responses
+    if (response && (response.report || response.data?.report)) {
+      reference.value = String(response.report?.id || response.data?.report?.id);
+    } else if (response && (response.id || response.data?.id)) {
+      reference.value = String(response.id || response.data?.id);
     } else {
       reference.value = "Success";
     }
+
+    // Force data refresh in store memory array to populate dashboard rows instantly
+    await store.fetchMyReports();
+
   } catch (err) {
-    errors.value.form = err.message || "Unable to submit found report.";
+    errors.value.form = err.response?.data?.message || err.message || "Unable to submit found report.";
   } finally {
     saving.value = false;
   }
@@ -122,4 +130,4 @@ async function submit() {
       </button>
     </form>
   </main>
-</template>
+</template>s
