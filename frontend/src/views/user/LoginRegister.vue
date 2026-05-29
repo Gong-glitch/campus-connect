@@ -16,7 +16,8 @@ const showPassword = ref(false);
 const loginForm = reactive({ email: "", password: "" });
 const registerForm = reactive({ name: "", schoolId: "", email: "", password: "" });
 
-function handleLogin() {
+// 🎯 FIXED: Rewired to invoke the central store API pipeline
+async function handleLogin() {
   error.value = "";
   try {
     const email = sanitizeEmail(loginForm.email);
@@ -24,23 +25,17 @@ function handleLogin() {
       throw new Error("Please enter a valid school email and password.");
     }
 
-    const user = store.state.users.find(
-      (u) => u.email === email && u.password === loginForm.password && (u.role === "user" || u.role === "student")
-    );
+    // Hits your actual live Laravel container over the network!
+    await store.login(email, loginForm.password, "user");
 
-    if (!user) {
-      throw new Error("Invalid student credentials or account does not exist.");
-    }
-
-    store.state.currentUser = user;
-    store.persist();
-    router.push("/home");
+    // The store automatically updates state and handles route redirection now
   } catch (err) {
-    error.value = err.message;
+    error.value = err.message || "Invalid student credentials or account does not exist.";
   }
 }
 
-function handleRegister() {
+// 🎯 FIXED: Rewired registration to save data directly to PostgreSQL
+async function handleRegister() {
   error.value = "";
   successMessage.value = "";
   try {
@@ -53,33 +48,17 @@ function handleRegister() {
     if (!isValidEmail(email)) throw new Error("Please enter a valid school email address.");
     if (!isStrongPassword(password)) throw new Error("Password must be at least 8 characters with uppercase, lowercase, and a number.");
 
-    if (store.state.users.some((u) => u.email === email)) {
-      throw new Error("An account with this email already exists.");
-    }
-
-    const newStudent = {
-      id: crypto.randomUUID(),
+    // Calls the real API to store user data permanently
+    await store.register({
       name,
       schoolId,
       email,
-      password,
-      role: "user",
-      status: "Active",
-      joinDate: new Date().toISOString().slice(0, 10)
-    };
+      password
+    });
 
-    store.state.users.push(newStudent);
-    store.persist();
-
-    successMessage.value = "Registration successful! You can now log in.";
-    isLogin.value = true;
-
-    registerForm.name = "";
-    registerForm.schoolId = "";
-    registerForm.email = "";
-    registerForm.password = "";
+    successMessage.value = "Registration successful! Redirecting you home...";
   } catch (err) {
-    error.value = err.message;
+    error.value = err.message || "Registration failed. Please try again.";
   }
 }
 </script>
