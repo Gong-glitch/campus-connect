@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-vue-next";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import ImageUploader from "../../components/shared/ImageUploader.vue";
 import { useStore } from "../../composables/useStore";
-import { api } from "../../services/api"; 
+import axios from "axios"; // 🎯 Using direct clean axios to bypass base URL issues
 import { sanitizeReportPayload } from "../../utils/inputProtection";
 
 const store = useStore();
@@ -44,30 +44,39 @@ async function submit() {
       image_path: form.photo || null
     };
 
-    // Use your verified global API client instance
-    const response = await api.post("/lost-reports", backendPayload);
+    // 🎯 GET AUTH TOKEN: Grab the login token your system stored in localStorage
+    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
 
-    console.log("Server API Response:", response);
+    // 🎯 DIRECT ROUTE: explicitly target your Render backend endpoint
+    const response = await axios.post(
+      "https://campus-connect-3s6n.onrender.com/api/lost-reports", 
+      backendPayload,
+      {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          Accept: "application/json"
+        }
+      }
+    );
 
-    // Deep inspect the unzipped response object layers to locate the real Laravel ID
-    let databaseId = null;
-    if (response?.report?.id) databaseId = response.report.id;
-    else if (response?.data?.report?.id) databaseId = response.data.report.id;
-    else if (response?.id) databaseId = response.id;
-    else if (response?.data?.id) databaseId = response.data.id;
+    console.log("Direct Backend Connection Response:", response.data);
 
-    if (databaseId) {
-      reference.value = String(databaseId);
-      // Immediately pull fresh database rows down to the client store state
-      await store.fetchMyReports();
+    // Read the true saved database ID from your Laravel controller wrapper
+    if (response.data && response.data.report && response.data.report.id) {
+      reference.value = String(response.data.report.id);
+
+      // Update global store values instantly
+      if (typeof store.fetchMyReports === "function") {
+        await store.fetchMyReports();
+      }
     } else {
-      // If the response is an empty object {}, trigger a visible error instead of hiding it
-      throw new Error("Server authentication or CORS block returned an empty response body.");
+      throw new Error("Server processed request but failed to save row record.");
     }
 
   } catch (err) {
     console.error("Submission processing error:", err);
-    errors.value.form = err.response?.data?.message || err.message || "Failed to submit report. Please check your connection.";
+    // Show the real system error on screen instead of faking a success page!
+    errors.value.form = err.response?.data?.message || err.message || "Could not connect to the remote server.";
   } finally {
     saving.value = false;
   }
@@ -78,9 +87,9 @@ async function submit() {
   <AppNavbar role="user" />
   <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
 
-    <section v-if="reference" class="rounded-md bg-white p-8 text-center shadow-soft">
+    <section v-if="reference && !reference.startsWith('REC-')" class="rounded-md bg-white p-8 text-center shadow-soft">
       <h1 class="text-3xl font-bold text-primary">Thank you for reporting a lost item</h1>
-      <p class="mt-3 text-muted">Your report has been successfully recorded in the campus database.</p>
+      <p class="mt-3 text-muted">Your report has been received and saved to the database.</p>
       <p class="mt-3 text-muted">Reference Number</p>
       <p class="mt-1 text-2xl font-bold text-dark">#{{ reference }}</p>
 
@@ -139,8 +148,8 @@ async function submit() {
         </div>
       </div>
 
-      <p v-if="errors.form" class="mt-4 text-sm text-danger bg-danger/10 border border-danger/20 rounded p-3 font-medium">
-        ⚠️ {{ errors.form }}
+      <p v-if="errors.form" class="mt-4 text-sm text-danger bg-danger/10 border border-danger/20 rounded p-3 font-semibold">
+        ⚠️ Error: {{ errors.form }}
       </p>
 
       <button type="submit" class="btn-primary mt-6 flex w-full items-center justify-center gap-2" :disabled="saving">
