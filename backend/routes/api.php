@@ -57,7 +57,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin Claims Controls
     Route::get('/admin/claims', [ClaimController::class, 'index']);
-    Route::patch('/admin/claims/{id}/status', [ClaimController::class, 'updateStatus']);
+
+    // 🛠️ FIX: Route updated from /admin/claims/{id}/status to /claims/{id} to match frontend patch action
+    Route::patch('/claims/{id}', [ClaimController::class, 'updateStatus']);
 
     // Image Upload Pipeline
     Route::post('/upload', [UploadController::class, 'upload']);
