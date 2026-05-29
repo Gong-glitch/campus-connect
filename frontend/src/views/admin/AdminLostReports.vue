@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { X } from "lucide-vue-next";
+import { X, ImageIcon } from "lucide-vue-next";
 import AdminTable from "../../components/shared/AdminTable.vue";
 import AppNavbar from "../../components/shared/AppNavbar.vue";
 import StatusBadge from "../../components/shared/StatusBadge.vue";
@@ -20,7 +20,9 @@ function mapRow(raw) {
     contactEmail: raw.contact_email ?? "",
     status: raw.status ?? "Open",
     description: raw.description ?? "",
-    reportedBy: raw.user?.name ?? ""
+    reportedBy: raw.user?.name ?? "",
+    // 📸 Capture the image path from the backend record
+    photo: raw.image_path ?? raw.photo ?? null
   };
 }
 
@@ -32,7 +34,6 @@ async function fetchReports() {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     };
 
-    // Request data from the reports endpoint
     const response = await api.get("/lost-reports", config);
 
     const dataArray = Array.isArray(response) 
@@ -42,8 +43,6 @@ async function fetchReports() {
     rows.value = dataArray.map(mapRow);
   } catch (err) {
     console.error("🔒 Admin Fetch Error Details:", err);
-
-    // Check if the server explicitly rejected the credentials with a 403 status code
     if (err.response?.status === 403 || err.message?.includes("403")) {
       errorMessage.value = "Your current Admin account doesn't have database permissions to view user reports (403 Forbidden).";
     } else {
@@ -130,10 +129,28 @@ const columns = [
             <div><p class="label">Reported By</p><p class="mt-0.5 font-medium text-dark">{{ selected.reportedBy }}</p></div>
             <div><p class="label">Status</p><StatusBadge :status="selected.status" class="mt-0.5" /></div>
           </div>
+
           <div>
             <p class="label">Description</p>
             <p class="mt-1 whitespace-pre-wrap rounded-md bg-light px-3 py-2 text-dark">{{ selected.description }}</p>
           </div>
+
+          <div>
+            <p class="label">Item Image</p>
+            <div class="mt-1 overflow-hidden rounded-md border border-gray-200 bg-light">
+              <img 
+                v-if="selected.photo" 
+                :src="selected.photo" 
+                alt="Reported item image" 
+                class="max-h-60 w-full object-contain bg-gray-50"
+              />
+              <div v-else class="flex flex-col items-center justify-center py-8 text-muted">
+                <ImageIcon class="h-8 w-8 stroke-[1.5]" />
+                <p class="mt-1 text-xs">No image uploaded for this report</p>
+              </div>
+            </div>
+          </div>
+
         </div>
         <div class="flex justify-end border-t border-green-100 px-5 py-4">
           <button class="btn-secondary" @click="selected = null">Close</button>
