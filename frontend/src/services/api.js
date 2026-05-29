@@ -3,18 +3,12 @@ const BASE = import.meta.env.DEV
   ? "/api"
   : "https://campus-connect-api-0s3b.onrender.com/api"; // 🎯 Your live API endpoint
 
-// 🔍 Matches your local storage session tracking key
-const TOKEN_KEY = "campus-lost-found-csu-v2";
+// 🔍 ISOLATED KEY: Saves your token safely away from the store state persistence
+const REAL_TOKEN_KEY = "campus-connect-auth-token";
 
 export function getToken() {
   try {
-    const dataString = localStorage.getItem(TOKEN_KEY);
-    if (!dataString) return null;
-    const parsedData = JSON.parse(dataString);
-    if (parsedData.session && parsedData.session.token) {
-      return parsedData.session.token;
-    }
-    return parsedData.token || null;
+    return localStorage.getItem(REAL_TOKEN_KEY) || null;
   } catch (error) {
     console.error("Error reading token from local storage:", error);
     return null;
@@ -23,17 +17,10 @@ export function getToken() {
 
 export function setToken(token) {
   try {
-    const dataString = localStorage.getItem(TOKEN_KEY) || "{}";
-    const parsedData = JSON.parse(dataString);
-    if (!parsedData.session) parsedData.session = {};
     if (token) {
-      parsedData.session.token = token;
-      parsedData.token = token;
-      localStorage.setItem(TOKEN_KEY, JSON.stringify(parsedData));
+      localStorage.setItem(REAL_TOKEN_KEY, token);
     } else {
-      if (parsedData.session) delete parsedData.session.token;
-      delete parsedData.token;
-      localStorage.setItem(TOKEN_KEY, JSON.stringify(parsedData));
+      localStorage.removeItem(REAL_TOKEN_KEY);
     }
   } catch (error) {
     console.error("Error setting token in local storage:", error);
