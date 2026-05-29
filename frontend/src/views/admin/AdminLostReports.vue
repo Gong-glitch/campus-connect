@@ -10,35 +10,46 @@ const selected = ref(null);
 const rows = ref([]);
 const errorMessage = ref("");
 
-  function mapRow(raw) {
-    // 1️⃣ Grab whatever image key the backend is returning
-    let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
-    let finalPhotoUrl = null;
+function mapRow(raw) {
+  // 📸 Extract the image reference field returned from your database structure
+  let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
+  let finalPhotoUrl = null;
 
-    if (rawPath) {
-      // 2️⃣ If it's already a full URL (starts with http), use it directly
-      if (rawPath.startsWith('http')) {
-        finalPhotoUrl = rawPath;
-      } else {
-        // 3️⃣ If it's a relative path, strip any leading slashes and attach your live Render API host
-        const cleanPath = rawPath.replace(/^\//, '');
-        finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/${cleanPath}`;
+  if (rawPath) {
+    // If it's already an absolute external web path, keep it as is
+    if (rawPath.startsWith('http')) {
+      finalPhotoUrl = rawPath;
+    } else {
+      // Clean up extra leading slashes or duplicate directory segments
+      let cleanPath = rawPath.trim().replace(/^\//, '');
+
+      // Standardize path structure to map exactly against Laravel's public storage symlink rules
+      if (cleanPath.startsWith('storage/')) {
+        cleanPath = cleanPath.substring(8); 
+      } else if (cleanPath.startsWith('app/public/')) {
+        cleanPath = cleanPath.substring(11); 
+      } else if (cleanPath.startsWith('public/storage/')) {
+        cleanPath = cleanPath.substring(15);
       }
-    }
 
-    return {
-      id: raw.id,
-      name: raw.title ?? "",
-      category: raw.category ?? "",
-      location: raw.location ?? "",
-      date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
-      contactEmail: raw.contact_email ?? "",
-      status: raw.status ?? "Open",
-      description: raw.description ?? "",
-      reportedBy: raw.user?.name ?? "",
-      photo: finalPhotoUrl
-    };
+      // Stitch path to your absolute Render backend API server asset repository URL
+      finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/storage/${cleanPath}`;
+    }
   }
+
+  return {
+    id: raw.id,
+    name: raw.title ?? "",
+    category: raw.category ?? "",
+    location: raw.location ?? "",
+    date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
+    contactEmail: raw.contact_email ?? "",
+    status: raw.status ?? "Open",
+    description: raw.description ?? "",
+    reportedBy: raw.user?.name ?? "",
+    photo: finalPhotoUrl
+  };
+}
 
 async function fetchReports() {
   errorMessage.value = "";
@@ -48,6 +59,7 @@ async function fetchReports() {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     };
 
+    // Query the lost reports api endpoint with your auth session token headers
     const response = await api.get("/lost-reports", config);
 
     const dataArray = Array.isArray(response) 
@@ -150,26 +162,3 @@ const columns = [
           </div>
 
           <div>
-            <p class="label">Item Image</p>
-            <div class="mt-1 overflow-hidden rounded-md border border-gray-200 bg-light">
-              <img 
-                v-if="selected.photo" 
-                :src="selected.photo" 
-                alt="Reported item image" 
-                class="max-h-60 w-full object-contain bg-gray-50"
-              />
-              <div v-else class="flex flex-col items-center justify-center py-8 text-muted">
-                <ImageIcon class="h-8 w-8 stroke-[1.5]" />
-                <p class="mt-1 text-xs">No image uploaded for this report</p>
-              </div>
-            </div>
-          </div>
-
-        </div>
-        <div class="flex justify-end border-t border-green-100 px-5 py-4">
-          <button class="btn-secondary" @click="selected = null">Close</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-</template>
