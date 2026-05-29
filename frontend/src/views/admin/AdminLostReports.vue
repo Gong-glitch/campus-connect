@@ -25,30 +25,65 @@ function mapRow(raw) {
 
 async function fetchReports() {
   try {
-    const raw = await api.get("/lost-reports");
-    rows.value = raw.map(mapRow);
-  } catch (_) {}
+    // 🎯 FIX: Explicitly target the dedicated administrative index endpoint wrapper 
+    // and forcefully pass the stored authentication token directly in the config headers if needed.
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+
+    const config = {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    };
+
+    // Query the dedicated administrative listing index endpoint
+    const response = await api.get("/admin/lost-reports", config).catch(async () => {
+      // Fallback fallback to standard endpoint if your backend registers admin routes on the base path
+      return await api.get("/lost-reports", config);
+    });
+
+    // Handle both direct arrays and paginated data/report collection structures gracefully
+    const dataArray = Array.isArray(response) 
+      ? response 
+      : (response?.data || response?.reports || []);
+
+    rows.value = dataArray.map(mapRow);
+  } catch (err) {
+    console.error("Admin Panel Data Extraction Failure:", err);
+  }
 }
 
 onMounted(fetchReports);
 
 async function flagMatched(id) {
   try {
-    await api.patch(`/lost-reports/${id}`, { status: "Matched" });
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+
+    await api.patch(`/admin/lost-reports/${id}`, { status: "Matched" }, config).catch(async () => {
+      return await api.patch(`/lost-reports/${id}`, { status: "Matched" }, config);
+    });
     await fetchReports();
   } catch (_) {}
 }
 
 async function archive(id) {
   try {
-    await api.patch(`/lost-reports/${id}`, { status: "Archived" });
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+
+    await api.patch(`/admin/lost-reports/${id}`, { status: "Archived" }, config).catch(async () => {
+      return await api.patch(`/lost-reports/${id}`, { status: "Archived" }, config);
+    });
     await fetchReports();
   } catch (_) {}
 }
 
 async function remove(id) {
   try {
-    await api.delete(`/lost-reports/${id}`);
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+
+    await api.delete(`/admin/lost-reports/${id}`, config).catch(async () => {
+      return await api.delete(`/lost-reports/${id}`, config);
+    });
     await fetchReports();
   } catch (_) {}
 }
@@ -80,7 +115,6 @@ const columns = [
     </AdminTable>
   </main>
 
-  <!-- Detail modal -->
   <Teleport to="body">
     <div v-if="selected" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="selected = null">
       <div class="w-full max-w-lg rounded-md bg-white shadow-xl">

@@ -118,7 +118,7 @@ async function submit() {
         </label>
 
         <label class="sm:col-span-2">
-          <span class="label">Description / Distinguishing Features</span>
+          <span class="label">Description</span>
           <textarea v-model="form.description" class="field mt-1 min-h-28" placeholder="Provide distinct features like color, brand, stickers..." />
           <span v-if="errors.description" class="text-xs text-danger">{{ errors.description }}</span>
         </label>

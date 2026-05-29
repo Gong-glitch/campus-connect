@@ -115,7 +115,7 @@ async function submit() {
         </label>
 
         <label>
-          <span class="label">Where Found</span>
+          <span class="label">Where Found (Last Seen)</span>
           <input v-model="form.location" class="field mt-1" list="found-location-options" placeholder="Type location or choose suggestion" />
           <datalist id="found-location-options">
             <option v-for="location in store.state.settings.locations" :key="location" :value="location" />
