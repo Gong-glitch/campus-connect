@@ -12,9 +12,11 @@ const isLogin = ref(true);
 const error = ref("");
 const successMessage = ref("");
 const showPassword = ref(false);
+const showConfirmPassword = ref(false); // 🚀 ADDED: Track visibility for the confirm field separately
 
 const loginForm = reactive({ email: "", password: "" });
-const registerForm = reactive({ name: "", schoolId: "", email: "", password: "" });
+// 🚀 UPDATED: Added confirmPassword property to the registration state group
+const registerForm = reactive({ name: "", schoolId: "", email: "", password: "", confirmPassword: "" });
 
 // 🎯 FIXED: Rewired to invoke the central store API pipeline
 async function handleLogin() {
@@ -47,6 +49,11 @@ async function handleRegister() {
     if (!name || !schoolId) throw new Error("Name and School ID are required.");
     if (!isValidEmail(email)) throw new Error("Please enter a valid school email address.");
     if (!isStrongPassword(password)) throw new Error("Password must be at least 8 characters with uppercase, lowercase, and a number.");
+
+    // 🚀 ADDED: Validate that both matching passwords are exactly identical
+    if (password !== registerForm.confirmPassword) {
+      throw new Error("Passwords do not match.");
+    }
 
     // Calls the real API to store user data permanently
     await store.register({
@@ -153,7 +160,17 @@ async function handleRegister() {
             <span class="mt-1 block text-[11px] text-muted leading-tight">Must contain 8+ characters, including uppercase, lowercase, and a number.</span>
           </label>
 
-          <button type="submit" class="btn-primary w-full mt-2 py-3 font-bold shadow-md tracking-wide">Create Account</button>
+          <label class="block">
+            <span class="label text-xs uppercase tracking-wider">Confirm Password</span>
+            <div class="relative mt-1">
+              <input v-model="registerForm.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'" class="field pr-11" placeholder="••••••••" required />
+              <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:bg-light" @click="showConfirmPassword = !showConfirmPassword">
+                <EyeOff v-if="showConfirmPassword" class="h-4 w-4" /><Eye v-else class="h-4 w-4" />
+              </button>
+            </div>
+          </label>
+
+          <button type="submit" class="btn-primary w-full mt-4 py-3 font-bold shadow-md tracking-wide">Create Account</button>
         </form>
 
         <div class="pt-4 border-t text-center">
