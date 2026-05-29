@@ -10,21 +10,35 @@ const selected = ref(null);
 const rows = ref([]);
 const errorMessage = ref("");
 
-function mapRow(raw) {
-  return {
-    id: raw.id,
-    name: raw.title ?? "",
-    category: raw.category ?? "",
-    location: raw.location ?? "",
-    date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
-    contactEmail: raw.contact_email ?? "",
-    status: raw.status ?? "Open",
-    description: raw.description ?? "",
-    reportedBy: raw.user?.name ?? "",
-    // 📸 Capture the image path from the backend record
-    photo: raw.image_path ?? raw.photo ?? null
-  };
-}
+  function mapRow(raw) {
+    // 1️⃣ Grab whatever image key the backend is returning
+    let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
+    let finalPhotoUrl = null;
+
+    if (rawPath) {
+      // 2️⃣ If it's already a full URL (starts with http), use it directly
+      if (rawPath.startsWith('http')) {
+        finalPhotoUrl = rawPath;
+      } else {
+        // 3️⃣ If it's a relative path, strip any leading slashes and attach your live Render API host
+        const cleanPath = rawPath.replace(/^\//, '');
+        finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/${cleanPath}`;
+      }
+    }
+
+    return {
+      id: raw.id,
+      name: raw.title ?? "",
+      category: raw.category ?? "",
+      location: raw.location ?? "",
+      date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
+      contactEmail: raw.contact_email ?? "",
+      status: raw.status ?? "Open",
+      description: raw.description ?? "",
+      reportedBy: raw.user?.name ?? "",
+      photo: finalPhotoUrl
+    };
+  }
 
 async function fetchReports() {
   errorMessage.value = "";
