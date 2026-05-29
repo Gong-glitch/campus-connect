@@ -44,8 +44,14 @@ function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   const saved = raw ? JSON.parse(raw) : null;
   const base = saved ? { ...initialData, ...saved } : { ...initialData };
-  if (base.session && !getToken()) base.session = null;
-  if (!raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
+
+  // 🎯 FIXED: Ensure the state picks up the session properly on reload
+  if (base.session && !getToken()) {
+    base.session = null;
+  }
+  if (!raw) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
+  }
   return base;
 }
 
@@ -165,7 +171,6 @@ export function createAppStore() {
       return mapItem(raw);
     },
 
-    // 🎯 FIXED METHOD: Points explicitly to your custom authenticated endpoints
     async fetchMyReports() {
       try {
         const [lostRaw, foundRaw] = await Promise.all([
@@ -185,9 +190,12 @@ export function createAppStore() {
         password: String(password ?? ""),
         role,
       });
-      setToken(data.token);
 
-      const user = data?.user || data;
+      // 🎯 FIXED: Save token to local storage BEFORE building session state
+      const token = data.token || data.data?.token;
+      setToken(token);
+
+      const user = data?.user || data?.data?.user || data;
       if (!user) throw new Error("Invalid server validation payload structure.");
 
       state.session = {
@@ -197,7 +205,10 @@ export function createAppStore() {
         schoolId: user.school_id ?? user.schoolId ?? "",
         role: user.role ?? role,
       };
-      persist();
+
+      // 🎯 CRITICAL FIXED STEP: Force state into Local Storage before browser changes page location
+      persist(); 
+
       await this.fetchLocations();
       window.location.href = state.session.role === "admin" ? "/admin/users" : "/home";
     },
@@ -220,9 +231,11 @@ export function createAppStore() {
         email: clean.email,
         password: payload.password,
       });
-      setToken(data.token);
 
-      const user = data?.user || data;
+      const token = data.token || data.data?.token;
+      setToken(token);
+
+      const user = data?.user || data?.data?.user || data;
       state.session = {
         id: user.id || user.user_id,
         name: user.name ?? "",
@@ -231,7 +244,9 @@ export function createAppStore() {
         role: user.role ?? "user",
       };
       addActivity(`${user.name ?? "User"} registered`);
-      persist();
+
+      // 🎯 CRITICAL FIXED STEP: Commit to storage immediately
+      persist(); 
       window.location.href = "/home";
     },
 
@@ -243,7 +258,8 @@ export function createAppStore() {
         password: payload.password,
       });
 
-      if (data && data.token) setToken(data.token);
+      const token = data.token || data.data?.token;
+      if (token) setToken(token);
       addActivity("Admin account created");
       persist();
       window.location.href = "/admin/users";
@@ -389,7 +405,7 @@ export function createAppStore() {
       if (!claim) return;
 
       const updatePayload = {
-        status: status,                               
+        status: status,                                
         actioned_by: state.session?.id || "admin",   
         actioned_at: new Date().toISOString().slice(0, 10),
         admin_notes: note
