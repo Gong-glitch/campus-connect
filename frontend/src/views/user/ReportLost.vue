@@ -89,10 +89,13 @@ async function submit() {
     <section v-if="reference" class="rounded-md bg-white p-8 text-center shadow-soft">
       <h1 class="text-3xl font-bold text-primary">Thank you for reporting a lost item</h1>
       <p class="mt-3 text-muted">Your report has been successfully recorded in the campus database.</p>
-      <p class="mt-3 text-muted">Reference Number</p>
-      <p class="mt-1 text-2xl font-bold text-dark">#{{ reference }}</p>
+      <p class="mt-4 text-sm text-muted font-semibold tracking-wide uppercase text-gray-400">Reference Number</p>
 
-      <button class="btn-primary mt-6 inline-block px-6 py-2" @click="router.push('/my-reports')">
+      <p class="mt-1 text-3xl font-black tracking-wider text-dark">
+        REF-2026-{{ reference.padStart(5, "0") }}
+      </p>
+
+      <button class="btn-primary mt-8 inline-block px-6 py-2 shadow-soft" @click="router.push('/my-reports')">
         View My Reports
       </button>
     </section>
