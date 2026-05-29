@@ -40,35 +40,30 @@ async function submit() {
 
   saving.value = true;
   try {
-    // 🎯 MATCHING LARAVEL'S EXPECTED "LOST REPORT" MIGRATION SCHEMA PERFECTLY
+    // 🎯 MATCHES LARAVEL'S $request->validate() RULES EXACTLY
     const backendPayload = {
       title: form.name,
       description: form.description,
       category: form.category,
       location: form.location,
-      date_lost: form.date,            // 🎯 Fixed: Laravel expects date_lost for lost-reports endpoint
+      date_lost: form.date,
       contact_email: form.contactEmail,
-      image_path: form.photo || "",
-      status: "Open"                   // 🎯 Fixed: Backend single-table flag for open lost reports
+      image_path: form.photo || null
     };
 
-    // Send to the dedicated lost-reports endpoint
+    // Send directly to your Laravel endpoint
     const response = await api.post("/lost-reports", backendPayload);
 
-    // Track the generated database key safely across variant response layouts
-    if (response && response.report) {
+    // 🎯 FIXED ID EXTRACTION: Reads the 'report' object from your JSON response
+    if (response && response.report && response.report.id) {
       reference.value = String(response.report.id);
     } else if (response && response.id) {
       reference.value = String(response.id);
-    } else if (response && response.data && response.data.id) {
-      reference.value = String(response.data.id);
-    } else if (response && response.data && response.data.report) {
-      reference.value = String(response.data.report.id);
     } else {
       reference.value = "Success";
     }
 
-    // Force pull a clean download of your dashboard lists
+    // Instantly refresh store data arrays so the dashboard populates
     await store.fetchMyReports();
 
   } catch (err) {
