@@ -126,4 +126,31 @@ class ItemController extends Controller
 
         return response()->json(['message' => 'Item deleted successfully.'], 200);
     }
+
+    /**
+     * 🟢 PERSONAL STUDENT DASHBOARD FEED
+     * Fetches all found item submissions uploaded by the logged-in user.
+     */
+    public function myReports(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json(['error' => 'User context not found.'], 401);
+            }
+
+            $items = Item::with('user:id,name')
+                ->where('user_id', $user->id)
+                ->latest()
+                ->get();
+
+            return response()->json($items, 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to resolve user dashboard rows: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
