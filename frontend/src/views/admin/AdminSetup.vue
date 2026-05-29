@@ -8,52 +8,53 @@ import { Eye, EyeOff } from "lucide-vue-next";
 const store = useStore();
 const router = useRouter();
 const error = ref("");
+const isLoading = ref(false);
 const showPassword = ref(false);
 const showConfirm = ref(false);
 
-// ✅ FIXED: All fields start completely empty and clean
+// Fields start clean and empty
 const form = reactive({ name: "", schoolId: "", email: "", password: "", confirm: "" });
 
-onMounted(() => {
+onMounted(async () => {
   try {
+    // Dynamically pull live users from database to check for existing administrator presence
+    await store.fetchUsers();
     const hasAdmin = store.state.users.some((u) => u.role === "admin");
     if (hasAdmin) {
       router.replace("/admin/login");
     }
   } catch (err) {
-    error.value = "Unable to check admin status.";
+    error.value = "Unable to verify administrative registration status.";
   }
 });
 
-function submit() {
+async function submit() {
   try {
+    error.value = "";
     const name = sanitizeText(form.name, 120);
-    const schoolId = sanitizeText(form.schoolId, 40); // ✅ Captures your custom input
+    const schoolId = sanitizeText(form.schoolId, 40); 
     const email = sanitizeEmail(form.email);
     const password = String(form.password ?? "");
 
     if (!name) throw new Error("Name is required.");
-    if (!schoolId) throw new Error("School ID is required."); // ✅ Dynamic validation
+    if (!schoolId) throw new Error("School ID is required."); 
     if (!isValidEmail(email)) throw new Error("Enter a valid email address.");
     if (!isStrongPassword(password)) throw new Error("Password must be at least 8 characters with uppercase, lowercase, and a number.");
     if (password !== form.confirm) throw new Error("Passwords do not match.");
-    if (store.state.users.some((u) => u.email === email)) throw new Error("An account with this email already exists.");
 
-    store.state.users.push({
-      id: crypto.randomUUID(),
+    isLoading.value = true;
+
+    // 🖥️ FIXED: Routes data through your API layer instead of pushing locally to arrays
+    await store.createAdmin({
       name,
+      schoolId,
       email,
-      password,
-      schoolId, // ✅ FIXED: Uses your typed value, no longer a random placeholder!
-      role: "admin",
-      status: "Active",
-      joinDate: new Date().toISOString().slice(0, 10)
+      password
     });
-    store.persist();
 
-    router.replace("/admin/login");
   } catch (err) {
-    error.value = err.message;
+    isLoading.value = false;
+    error.value = err.response?.data?.message || err.message || "Failed to create administrator account.";
   }
 }
 </script>
@@ -63,23 +64,23 @@ function submit() {
     <form class="w-full max-w-md rounded-md border-t-4 border-primary bg-white p-7 shadow-soft" @submit.prevent="submit">
       <h1 class="text-3xl font-bold text-dark">Admin Setup</h1>
       <p class="mt-1 text-sm text-gray-500">Create the first administrator account.</p>
-      
+
       <div class="mt-6 space-y-4">
         <label class="block">
           <span class="label">Full Name</span>
-          <input v-model="form.name" class="field mt-1" type="text" placeholder="John Doe" required />
+          <input v-model="form.name" class="field mt-1" type="text" placeholder="John Doe" :disabled="isLoading" required />
         </label>
 
         <label class="block">
           <span class="label">School ID</span>
-          <input v-model="form.schoolId" class="field mt-1" type="text" placeholder="211-00087" required />
+          <input v-model="form.schoolId" class="field mt-1" type="text" placeholder="191-02055" :disabled="isLoading" required />
         </label>
-        
+
         <label class="block">
           <span class="label">Email</span>
-          <input v-model="form.email" class="field mt-1" type="email" placeholder="admin@carsu.edu.ph" required />
+          <input v-model="form.email" class="field mt-1" type="email" placeholder="james@carsu.edu.ph" :disabled="isLoading" required />
         </label>
-        
+
         <label class="block">
           <span class="label">Password</span>
           <div class="relative mt-1">
@@ -87,6 +88,7 @@ function submit() {
               v-model="form.password" 
               class="field pr-11" 
               :type="showPassword ? 'text' : 'password'" 
+              :disabled="isLoading"
               required 
             />
             <button 
@@ -99,7 +101,7 @@ function submit() {
             </button>
           </div>
         </label>
-        
+
         <label class="block">
           <span class="label">Confirm Password</span>
           <div class="relative mt-1">
@@ -107,6 +109,7 @@ function submit() {
               v-model="form.confirm" 
               class="field pr-11" 
               :type="showConfirm ? 'text' : 'password'" 
+              :disabled="isLoading"
               required 
             />
             <button 
@@ -120,9 +123,13 @@ function submit() {
           </div>
         </label>
       </div>
-      
+
       <p v-if="error" class="mt-3 text-sm text-danger">{{ error }}</p>
-      <button class="btn-primary mt-6 w-full">Create Admin Account</button>
+
+      <button class="btn-primary mt-6 w-full flex items-center justify-center gap-2" :disabled="isLoading">
+        <span v-if="isLoading">Creating Account...</span>
+        <span v-else>Create Admin Account</span>
+      </button>
     </form>
   </main>
 </template>
