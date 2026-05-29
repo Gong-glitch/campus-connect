@@ -68,10 +68,15 @@ async function submit() {
     <section v-if="reference" class="rounded-md bg-white p-8 text-center shadow-soft">
       <h1 class="text-3xl font-bold text-primary">Thank you for reporting a found item</h1>
       <p class="mt-3 text-muted">Your report is pending admin approval before it appears in public listings.</p>
-      <p class="mt-3 text-muted">Reference Number</p>
-      <p class="mt-1 text-2xl font-bold text-dark">#{{ reference }}</p>
-      <RouterLink class="btn-primary mt-6" to="/my-reports">View My Reports</RouterLink>
+      <p class="mt-4 text-sm text-muted font-semibold tracking-wide uppercase text-gray-400">Reference Number</p>
+
+      <p class="mt-1 text-3xl font-black tracking-wider text-dark">
+        {{ reference === 'Success' ? 'Success' : `REF-2026-${reference.padStart(5, '0')}` }}
+      </p>
+
+      <RouterLink class="btn-primary mt-8 inline-block px-6 py-2 shadow-soft" to="/my-reports">View My Reports</RouterLink>
     </section>
+
     <form v-else class="rounded-md bg-white p-6 shadow-soft" @submit.prevent="submit">
       <h1 class="text-3xl font-bold text-dark">Report Found Item</h1>
       <div class="mt-6 grid gap-4 sm:grid-cols-2">
