@@ -42,6 +42,7 @@ const initialData = {
   activity: [],
 };
 
+// Only retains session handshake tracking so users don't have to re-login on refresh
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   const saved = raw ? JSON.parse(raw) : null;
@@ -50,19 +51,16 @@ function loadState() {
   if (base.session && !getToken()) {
     base.session = null;
   }
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
-  }
-  return base;
+  return {
+    ...initialData,
+    session: base.session
+  };
 }
 
 // 🖼️ Re-routed to fetch images natively via your Render Backend streaming utility route
 function formatImagePath(photoUrl) {
   if (photoUrl && !photoUrl.startsWith("http")) {
-    // Strip out any redundant leading slashes or old "storage/" prefix markers
     const cleanPath = photoUrl.replace(/^\/?(storage\/)?/, "");
-
-    // Force requests to point to your streaming endpoint at /api/storage/...
     return `${BACKEND_BASE}/api/storage/${cleanPath}`;
   }
   return photoUrl;
@@ -122,14 +120,9 @@ export function createAppStore() {
     foundReports: [],
   });
 
-  function persist() {
-    const {
-      foundItems: _fi,
-      lostReports: _lr,
-      foundReports: _fr,
-      ...toSave
-    } = JSON.parse(JSON.stringify(state));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  // Persists session token identifiers only, keeping database listings out of local cache
+  function persistSession() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ session: state.session }));
   }
 
   function addActivity(text) {
@@ -138,19 +131,16 @@ export function createAppStore() {
       text,
       time: new Date().toLocaleString(),
     });
-    persist();
   }
 
   const store = {
     state,
-    persist,
 
     async fetchLocations() {
       try {
         const data = await api.get("/campus-locations");
         if (Array.isArray(data)) {
           state.settings.locations = data.map((loc) => loc.name || loc);
-          persist();
         }
       } catch (_) {}
     },
@@ -160,13 +150,11 @@ export function createAppStore() {
       if (!cleanName) return;
       try {
         await api.post("/campus-locations", { name: cleanName });
+        if (!state.settings.locations.includes(cleanName)) {
+          state.settings.locations.push(cleanName);
+        }
+        addActivity(`Added location: ${cleanName}`);
       } catch (_) {}
-
-      if (!state.settings.locations.includes(cleanName)) {
-        state.settings.locations.push(cleanName);
-      }
-      addActivity(`Added location: ${cleanName}`);
-      persist();
     },
 
     async fetchItems() {
@@ -199,6 +187,25 @@ export function createAppStore() {
       }
     },
 
+    // 🟢 FETCH LIVE USERS FROM DB (No local storage pollution)
+    async fetchUsers() {
+      try {
+        const data = await api.get("/admin/users");
+        if (Array.isArray(data)) {
+          state.users = data.map(user => ({
+            id: user.id,
+            name: user.name,
+            schoolId: user.school_id || user.schoolId || "N/A",
+            email: user.email,
+            date: (user.created_at || "").slice(0, 10),
+            status: user.status || "Active"
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch database users:", error);
+      }
+    },
+
     async login(email, password, role = "user") {
       const data = await api.post("/login", {
         email: sanitizeEmail(email),
@@ -220,8 +227,7 @@ export function createAppStore() {
         role: user.role ?? role,
       };
 
-      persist(); 
-
+      persistSession(); 
       await this.fetchLocations();
       window.location.href = state.session.role === "admin" ? "/admin/users" : "/home";
     },
@@ -258,22 +264,18 @@ export function createAppStore() {
       };
       addActivity(`${user.name ?? "User"} registered`);
 
-      persist(); 
+      persistSession(); 
       window.location.href = "/home";
     },
 
     async createAdmin(payload) {
-      const data = await api.post("/setup-admin", {
+      await api.post("/setup-admin", {
         name: sanitizeText(payload.name, 120),
         school_id: sanitizeText(payload.schoolId, 40),
         email: sanitizeEmail(payload.email),
         password: payload.password,
       });
-
-      const token = data.token || data.data?.token;
-      if (token) setToken(token);
       addActivity("Admin account created");
-      persist();
       window.location.href = "/admin/users";
     },
 
@@ -286,7 +288,9 @@ export function createAppStore() {
       state.foundItems = [];
       state.lostReports = [];
       state.foundReports = [];
-      persist();
+      state.users = [];
+      state.claims = [];
+      localStorage.removeItem(STORAGE_KEY);
     },
 
     async changeAdminPassword(currentPassword, newPassword) {
@@ -298,7 +302,6 @@ export function createAppStore() {
         new_password: String(newPassword ?? ""),
       });
       addActivity("Admin password changed");
-      persist();
     },
 
     async addLostReport(payload) {
@@ -358,6 +361,28 @@ export function createAppStore() {
       await store.fetchMyReports();
     },
 
+    async fetchAdminClaims() {
+      try {
+        const data = await api.get("/admin/claims");
+        if (Array.isArray(data)) {
+          state.claims = data.map(claim => ({
+            id: claim.id,
+            itemId: claim.item_id,
+            itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
+            claimantName: claim.user?.name || "Unknown Student",
+            schoolId: claim.user?.school_id || "N/A",
+            contactEmail: claim.user?.email || "",
+            proof: claim.proof_text || claim.proof_of_ownership || "",
+            date: (claim.created_at || claim.claim_date || "").slice(0, 10),
+            status: claim.status || "Pending",
+            note: claim.admin_notes || ""
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to query system verification claim rows:", error);
+      }
+    },
+
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       if (
@@ -369,115 +394,86 @@ export function createAppStore() {
         throw new Error("Invalid claim input.");
       }
 
-      const claimData = {
-        id: crypto.randomUUID(),                     
+      await api.post("/claims", {
         item_id: clean.itemId,                       
-        user_id: state.session?.id || null,          
-        proof_of_ownership: clean.proof,             
-        status: "Pending",                            
-        claim_date: new Date().toISOString().slice(0, 10)
-      };
-
-      try {
-        await api.post("/claims", claimData);
-      } catch (_) {}
-
-      state.claims.unshift({
-        id: claimData.id,
-        itemId: clean.itemId,
-        itemName: clean.itemName,
-        claimantName: clean.claimantName,
-        schoolId: clean.schoolId,
-        contactEmail: clean.contactEmail,
-        proof: clean.proof,
-        date: claimData.claim_date,
-        status: "Pending",
-        note: "",
+        proof_text: clean.proof,             
       });
 
       addActivity(`${clean.claimantName} submitted database claim row for ${clean.itemName}`);
-      persist();
     },
 
     async approveFoundReport(id) {
       await api.patch(`/items/${id}`, { status: "Unclaimed" });
       addActivity("Found report approved and published");
-      persist();
       await store.fetchItems();
     },
 
     async rejectFoundReport(id) {
       await api.patch(`/items/${id}`, { status: "Rejected" });
       addActivity("Found report rejected");
-      persist();
     },
 
     async updateClaim(id, status, note = "") {
       const claim = state.claims.find((item) => item.id === id);
       if (!claim) return;
 
-      const updatePayload = {
-        status: status,                                 
-        actioned_by: state.session?.id || "admin",   
-        actioned_at: new Date().toISOString().slice(0, 10),
-        admin_notes: note
-      };
-
       try {
-        await api.patch(`/claims/${id}`, updatePayload);
-      } catch (_) {}
+        await api.patch(`/claims/${id}`, {
+          status: status,                                 
+          admin_notes: note
+        });
 
-      claim.status = status;
-      claim.note = note;
+        claim.status = status;
+        claim.note = note;
 
-      if (status === "Approved") {
-        const found = state.foundItems.find((item) => item.id === claim.itemId);
-        if (found) found.status = "Claimed";
-        try {
-          await api.patch(`/items/${claim.itemId}`, { status: "Claimed" });
-        } catch (_) {}
-      } else if (status === "Rejected") {
-        const found = state.foundItems.find((item) => item.id === claim.itemId);
-        if (found) found.status = "Unclaimed";
-        try {
-          await api.patch(`/items/${claim.itemId}`, { status: "Unclaimed" });
-        } catch (_) {}
+        if (status === "Approved") {
+          const found = state.foundItems.find((item) => item.id === claim.itemId);
+          if (found) found.status = "Resolved";
+        } else if (status === "Rejected") {
+          const found = state.foundItems.find((item) => item.id === claim.itemId);
+          if (found) found.status = "Found";
+        }
+        addActivity(`${claim.itemName} claim row updated to status: ${status.toLowerCase()}`);
+      } catch (error) {
+        console.error("Failed to execute claim condition modification:", error);
       }
-
-      addActivity(`${claim.itemName} claim row updated to status: ${status.toLowerCase()}`);
-      persist();
     },
 
-    // 🛠️ NEW METHOD: Safely requests backend deletion and filters item instantly out of UI state rows array
+    // 🟢 REAL DELETE CLAIM ACTION (Removes item from UI state immediately)
     async deleteClaim(id) {
       try {
         await api.delete(`/claims/${id}`);
         state.claims = state.claims.filter((item) => item.id !== id);
-        addActivity(`Permanently deleted claim record entry: ${id}`);
-        persist();
+        addActivity(`Permanently dropped verification claim entry reference: ${id}`);
       } catch (error) {
-        console.error("Failed to execute claim entry dropping network task:", error);
-        // Fallback UI filter to clear state layouts safely if connection logs out
+        console.error("Failed to execute claim row database purge action:", error);
         state.claims = state.claims.filter((item) => item.id !== id);
-        persist();
       }
     },
 
-    updateUser(id, payload) {
-      const index = state.users.findIndex((item) => item.id === id);
-      if (index >= 0) {
-        const next = { ...state.users[index], ...payload };
-        next.name = sanitizeText(next.name, 120);
-        next.schoolId = sanitizeText(next.schoolId, 40);
-        next.email = sanitizeEmail(next.email);
-        state.users[index] = next;
+    // 🟢 REAL USER STATUS MODIFY ACTION
+    async updateUserStatus(id, status) {
+      try {
+        await api.patch(`/admin/users/${id}`, { status });
+        const user = state.users.find((item) => item.id === id);
+        if (user) {
+          user.status = status;
+        }
+        addActivity(`Modified student account profile status state to: ${status}`);
+      } catch (error) {
+        console.error("Failed to execute status update payload pipeline:", error);
       }
-      persist();
     },
 
-    deleteUser(id) {
-      state.users = state.users.filter((item) => item.id !== id);
-      persist();
+    // 🟢 REAL USER PURGE ACTION
+    async deleteUserAccount(id) {
+      try {
+        await api.delete(`/admin/users/${id}`);
+        state.users = state.users.filter((item) => item.id !== id);
+        addActivity(`Dropped user registry identifier row record directly inside DB: ${id}`);
+      } catch (error) {
+        console.error("Failed to delete user account across the database layer:", error);
+      }
     },
 
     saveSettings(settings) {
