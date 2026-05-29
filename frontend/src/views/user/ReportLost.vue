@@ -24,65 +24,44 @@ const form = reactive({
   photo: "" 
 });
 
-async function submit() {
-  const securePhotoUrl = form.photo;
-  const clean = sanitizeReportPayload(form);
-  Object.assign(form, clean);
-  form.photo = securePhotoUrl;
+  async function submit() {
+    errors.value = {};
+    if (!form.name || form.name.length < 3) errors.value.name = "Item name must be at least 3 characters.";
+    if (!form.description || form.description.length < 12) errors.value.description = "Description must be at least 12 characters.";
+    if (!form.location || form.location.length < 3) errors.value.location = "Location must be at least 3 characters.";
+    if (!form.date) errors.value.date = "Date lost is required.";
+    if (Object.keys(errors.value).length) return;
 
-  errors.value = {};
-  if (!form.name || form.name.length < 3) errors.value.name = "Item name must be at least 3 characters.";
-  if (!form.description || form.description.length < 12) errors.value.description = "Description must be at least 12 characters.";
-  if (!form.location || form.location.length < 3) errors.value.location = "Location must be at least 3 characters.";
-  if (!form.date) errors.value.date = "Date lost is required.";
-  if (!isValidEmail(form.contactEmail)) errors.value.contactEmail = "Enter a valid contact email.";
-  if (Object.keys(errors.value).length) return;
+    saving.value = true;
+    try {
+      const backendPayload = {
+        title: form.name,
+        description: form.description,
+        category: form.category,
+        location: form.location,
+        date_lost: form.date, // Matching Laravel precisely
+        status: "Open"
+      };
 
-  saving.value = true;
-  try {
-    const backendPayload = {
-      title: form.name,
-      description: form.description,
-      category: form.category,
-      location: form.location,
-      date_lost: form.date,
-      contact_email: form.contactEmail,
-      image_path: form.photo || null
-    };
+      const response = await api.post("/lost-reports", backendPayload);
 
-    const response = await api.post("/lost-reports", backendPayload);
+      // 🎯 Only show success screen if the server actually returns a valid ID
+      if (response && (response.id || response.report?.id)) {
+        reference.value = String(response.id || response.report.id);
+      } else {
+        throw new Error("Server did not save the report record.");
+      }
 
-    // Debug tracking log so you can inspect the exact structure in your browser console
-    console.log("Raw Server Response Payload:", response);
+      await store.fetchMyReports();
 
-    // Comprehensive check to catch the ID wherever it is located in the response object
-    if (response && response.report && response.report.id) {
-      reference.value = String(response.report.id);
-    } else if (response && response.id) {
-      reference.value = String(response.id);
-    } else if (response && response.data && response.data.id) {
-      reference.value = String(response.data.id);
-    } else if (response && response.data && response.data.report && response.data.report.id) {
-      reference.value = String(response.data.report.id);
-    } else {
-      // Fallback: use a random string only if the database completely fails to provide a row identifier
-      reference.value = "REC-" + Math.floor(1000 + Math.random() * 9000);
+    } catch (err) {
+      console.error("Submission error:", err);
+      // 🎯 Captures the error so it shows up on screen instead of faking success
+      errors.value.form = err.response?.data?.message || "Session expired. Please log out and back in.";
+    } finally {
+      saving.value = false;
     }
-
-    // Force pull clean data from the database to instantly populate the dashboard tables
-    await store.fetchMyReports();
-
-  } catch (err) {
-    console.error("Submission failed:", err);
-    if (err.response?.status === 401) {
-      errors.value.form = "Your login session expired. Please log out and log back in to submit reports.";
-    } else {
-      errors.value.form = err.response?.data?.message || err.message || "Unable to submit lost report.";
-    }
-  } finally {
-    saving.value = false;
   }
-}
 </script>
 
 <template>
