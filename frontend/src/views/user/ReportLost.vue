@@ -44,34 +44,30 @@ async function submit() {
       image_path: form.photo || null
     };
 
-    // 🎯 Use raw axios configuration mapping to intercept unzipped proxy structures
+    // Use your verified global API client instance
     const response = await api.post("/lost-reports", backendPayload);
 
-    console.log("Raw Server Response Payload:", response);
+    console.log("Server API Response:", response);
 
-    // Dynamic extraction logic safely checking raw layers vs unzipped layer roots
-    let finalId = null;
+    // Deep inspect the unzipped response object layers to locate the real Laravel ID
+    let databaseId = null;
+    if (response?.report?.id) databaseId = response.report.id;
+    else if (response?.data?.report?.id) databaseId = response.data.report.id;
+    else if (response?.id) databaseId = response.id;
+    else if (response?.data?.id) databaseId = response.data.id;
 
-    if (response?.report?.id) finalId = response.report.id;
-    else if (response?.data?.report?.id) finalId = response.data.report.id;
-    else if (response?.id) finalId = response.id;
-    else if (response?.data?.id) finalId = response.data.id;
-
-    if (finalId) {
-      reference.value = String(finalId);
+    if (databaseId) {
+      reference.value = String(databaseId);
+      // Immediately pull fresh database rows down to the client store state
+      await store.fetchMyReports();
     } else {
-      // If we got back an empty object {}, something is intercepting data.
-      // Generate a temporary recovery string and log it.
-      console.warn("Payload missing clear ID parameter keys. Using fallback generation.");
-      reference.value = "REC-" + Math.floor(1000 + Math.random() * 9000);
+      // If the response is an empty object {}, trigger a visible error instead of hiding it
+      throw new Error("Server authentication or CORS block returned an empty response body.");
     }
-
-    // Force an immediate reload update across your global store memory structures
-    await store.fetchMyReports();
 
   } catch (err) {
     console.error("Submission processing error:", err);
-    errors.value.form = err.response?.data?.message || err.message || "Server configuration error.";
+    errors.value.form = err.response?.data?.message || err.message || "Failed to submit report. Please check your connection.";
   } finally {
     saving.value = false;
   }
@@ -84,7 +80,7 @@ async function submit() {
 
     <section v-if="reference" class="rounded-md bg-white p-8 text-center shadow-soft">
       <h1 class="text-3xl font-bold text-primary">Thank you for reporting a lost item</h1>
-      <p class="mt-3 text-muted">Your report has been received and logged to the campus network.</p>
+      <p class="mt-3 text-muted">Your report has been successfully recorded in the campus database.</p>
       <p class="mt-3 text-muted">Reference Number</p>
       <p class="mt-1 text-2xl font-bold text-dark">#{{ reference }}</p>
 
@@ -143,7 +139,9 @@ async function submit() {
         </div>
       </div>
 
-      <p v-if="errors.form" class="mt-3 text-sm text-danger-text bg-danger/10 border border-danger/20 rounded p-3">{{ errors.form }}</p>
+      <p v-if="errors.form" class="mt-4 text-sm text-danger bg-danger/10 border border-danger/20 rounded p-3 font-medium">
+        ⚠️ {{ errors.form }}
+      </p>
 
       <button type="submit" class="btn-primary mt-6 flex w-full items-center justify-center gap-2" :disabled="saving">
         <Loader2 v-if="saving" class="h-4 w-4 animate-spin" />
