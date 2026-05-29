@@ -46,11 +46,25 @@ async function submit() {
     // Send the correctly formatted payload to your store action
     const response = await store.addFoundReport(backendPayload);
 
-    // ✅ Extract the ID from Laravel's custom JSON response wrapper ({ report: { id: ... } })
-    if (response && response.report) {
-      reference.value = String(response.report.id);
-    } else if (response && response.id) {
-      reference.value = String(response.id);
+    console.log("Found Report Network Response Raw Object:", response);
+
+    // ✅ UNIVERSAL EXTRACTION LAYER: Fallback parser catches every wrapper variation
+    let trueDatabaseId = null;
+
+    if (response?.item?.id) {
+      trueDatabaseId = response.item.id;
+    } else if (response?.report?.id) {
+      trueDatabaseId = response.report.id;
+    } else if (response?.data?.item?.id) {
+      trueDatabaseId = response.data.item.id;
+    } else if (response?.data?.id) {
+      trueDatabaseId = response.data.id;
+    } else if (response?.id) {
+      trueDatabaseId = response.id;
+    }
+
+    if (trueDatabaseId) {
+      reference.value = String(trueDatabaseId);
     } else {
       reference.value = "Success";
     }
