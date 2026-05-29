@@ -72,21 +72,21 @@ Route::middleware('auth:sanctum')->group(function () {
 // Maintenance Utilities (Publicly Accessible)
 // ==========================================
 
-// 🎯 AUTOMATIC SYMLINK GENERATION FOR RENDER FREE TIER
-Route::get('/force-storage-link', function() {
-    try {
-        \Artisan::call('storage:link');
-        return response()->json([
-            'success' => true, 
-            'message' => 'The public/storage folder shortcut has been successfully linked!'
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false, 
-            'message' => 'Symlink execution skipped or already active: ' . $e->getMessage()
-        ]);
+// 🖼️ FREE TIER IMAGE STREAMER: Bypasses Render's filesystem restrictions entirely!
+// Matches any path coming through /api/storage/... and securely pipes the binary file data
+Route::get('/storage/{path}', function($path) {
+    // Look directly inside Laravel's local public storage disk
+    $fullPath = storage_path('app/public/' . $path);
+
+    if (!file_exists($fullPath) || is_dir($fullPath)) {
+        abort(404);
     }
-});
+
+    $file = file_get_contents($fullPath);
+    $type = mime_content_type($fullPath);
+
+    return response($file)->header('Content-Type', $type);
+})->where('path', '.*'); // Regex wildcard so it grabs subdirectories like 'items/abc.png'
 
 // Temporary database utility to remove alpha-numeric test strings
 Route::get('/clean-db-junk', function() {
