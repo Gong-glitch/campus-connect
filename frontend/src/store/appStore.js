@@ -167,7 +167,6 @@ export function createAppStore() {
 
     async fetchMyReports() {
       try {
-        // ✅ FIX 1: Point to your real Laravel user reports route structure directly instead of querying indices
         const [lostRaw, foundRaw] = await Promise.all([
           api.get("/my-reports/lost"),
           api.get("/my-reports/found"), 
@@ -275,8 +274,6 @@ export function createAppStore() {
 
     async addLostReport(payload) {
       const clean = sanitizeReportPayload(payload);
-
-      // Keep the incoming image reference preserved
       const imagePath = payload.image_path || clean.photo || null;
 
       const data = await api.post("/lost-reports", {
@@ -290,30 +287,27 @@ export function createAppStore() {
       });
       addActivity(`${payload.title || clean.name} lost report submitted`);
       await store.fetchMyReports();
-
-      // ✅ FIX 2: Safeguard against nested response wrappers
       return data?.report?.id || data?.id;
     },
 
+    // 🎯 STEP 2 FIXED METHOD: Routes cleanly to '/items' with found schema variables
     async addFoundReport(payload) {
-      // Keep the incoming image reference preserved
-      const imagePath = payload.image_path || null;
+      const clean = sanitizeReportPayload(payload);
+      const imagePath = payload.image_path || clean.photo || null;
 
-      const data = await api.post("/lost-reports", {
-        title: payload.title,
-        description: payload.description,
-        category: payload.category,
-        location: payload.location,
-        date_lost: payload.date_lost,
-        contact_email: payload.contact_email,
-        status: "Open",
+      const data = await api.post("/items", {
+        title: payload.title || clean.name,
+        description: payload.description || clean.description,
+        category: payload.category || clean.category,
+        location: payload.location || clean.location,
+        found_date: payload.date_lost || payload.date || clean.date,
+        contact_email: payload.contact_email || clean.contactEmail,
+        status: "Pending Approval",
         image_path: imagePath,
       });
 
-      addActivity(`${payload.title} found report submitted`);
+      addActivity(`${payload.title || clean.name} found report submitted`);
       await store.fetchMyReports();
-
-      // ✅ FIX 3: Return the cleanly wrapped database entry row object
       return data;
     },
 
