@@ -11,7 +11,7 @@ const rows = ref([]);
 const errorMessage = ref("");
 
 function mapRow(raw) {
-  // 📸 Grab whatever image key the backend is returning
+  // 📸 Extract the image value from your backend schema fields
   let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
   let finalPhotoUrl = null;
 
@@ -19,10 +19,10 @@ function mapRow(raw) {
     if (rawPath.startsWith('http')) {
       finalPhotoUrl = rawPath;
     } else {
-      // Clean up whitespace and any initial leading slashes
+      // 1️⃣ Clean up external formatting symbols or initial slash marks
       let cleanPath = rawPath.trim().replace(/^\//, '');
 
-      // Remove nested root references so we don't end up with duplicate words in our URLs
+      // 2️⃣ Remove root folder duplicates if present in the database string
       if (cleanPath.startsWith('public/storage/')) {
         cleanPath = cleanPath.substring(15);
       } else if (cleanPath.startsWith('storage/')) {
@@ -31,7 +31,7 @@ function mapRow(raw) {
         cleanPath = cleanPath.substring(11);
       }
 
-      // 🎯 Combine the live API route with the preserved subfolder destination path
+      // 3️⃣ Combine the live API route with the verified folder path structure
       finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/storage/${cleanPath}`;
     }
   }
