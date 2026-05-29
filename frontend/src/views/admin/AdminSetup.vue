@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "../../composables/useStore";
 import { isValidEmail, isStrongPassword, sanitizeEmail, sanitizeText } from "../../utils/inputProtection";
@@ -12,21 +12,8 @@ const isLoading = ref(false);
 const showPassword = ref(false);
 const showConfirm = ref(false);
 
-// Fields start clean and empty
+// Clean, empty reactive form fields
 const form = reactive({ name: "", schoolId: "", email: "", password: "", confirm: "" });
-
-onMounted(async () => {
-  try {
-    // Dynamically pull live users from database to check for existing administrator presence
-    await store.fetchUsers();
-    const hasAdmin = store.state.users.some((u) => u.role === "admin");
-    if (hasAdmin) {
-      router.replace("/admin/login");
-    }
-  } catch (err) {
-    error.value = "Unable to verify administrative registration status.";
-  }
-});
 
 async function submit() {
   try {
@@ -36,6 +23,7 @@ async function submit() {
     const email = sanitizeEmail(form.email);
     const password = String(form.password ?? "");
 
+    // Validation checks
     if (!name) throw new Error("Name is required.");
     if (!schoolId) throw new Error("School ID is required."); 
     if (!isValidEmail(email)) throw new Error("Enter a valid email address.");
@@ -44,7 +32,7 @@ async function submit() {
 
     isLoading.value = true;
 
-    // 🖥️ FIXED: Routes data through your API layer instead of pushing locally to arrays
+    // 🖥️ Send payload directly to backend registration endpoint
     await store.createAdmin({
       name,
       schoolId,
@@ -54,6 +42,7 @@ async function submit() {
 
   } catch (err) {
     isLoading.value = false;
+    // Capture if server rejects registration (e.g., if an admin already exists)
     error.value = err.response?.data?.message || err.message || "Failed to create administrator account.";
   }
 }
