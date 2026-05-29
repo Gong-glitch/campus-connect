@@ -45,7 +45,7 @@ function submit() {
   if (Object.keys(errors.value).length) return;
 
   try {
-    // FIX: Explicitly bundle the logged-in user's email into the payload object
+    // Explicitly bundle the logged-in user's email into the payload object
     const submissionPayload = {
       ...form,
       ownerEmail: store.state.session?.email || "anonymous@carsu.edu.ph"
@@ -54,7 +54,7 @@ function submit() {
     // Dispatch payload to appStore and capture the return reference ID
     reference.value = store.addFoundReport(submissionPayload);
 
-    // Optional Quality of Life (QoL): Reset fields cleanly upon success
+    // Reset fields cleanly upon success
     Object.assign(form, { name: "", description: "", date: "", contactEmail: "", photo: "" });
   } catch (err) {
     errors.value.form = err.message || "Unable to submit found report.";
@@ -74,7 +74,7 @@ function submit() {
           <label class="block">
             <span class="label">Item Name</span>
             <input v-model="form.name" class="field mt-1" placeholder="e.g. iPhone 13 Pro" />
-            <span v-if=\"errors.name\" class="text-xs text-danger mt-1 block">{{ errors.name }}</span>
+            <span v-if="errors.name" class="text-xs text-danger mt-1 block">{{ errors.name }}</span>
           </label>
 
           <label class="block">
@@ -89,7 +89,7 @@ function submit() {
           <label class="block sm:col-span-2">
             <span class="label">Description</span>
             <textarea v-model="form.description" class="field mt-1 min-h-28" placeholder="Provide distinct features (color, serial codes, case identity)..." />
-            <span v-if=\"errors.description\" class="text-xs text-danger mt-1 block">{{ errors.description }}</span>
+            <span v-if="errors.description" class="text-xs text-danger mt-1 block">{{ errors.description }}</span>
           </label>
 
           <label class="block">
@@ -98,42 +98,3 @@ function submit() {
             <datalist id="found-location-options">
               <option v-for="loc in store.state.settings.locations" :key="loc" :value="loc" />
             </datalist>
-            <span v-if=\"errors.location\" class="text-xs text-danger mt-1 block">{{ errors.location }}</span>
-          </label>
-
-          <label class="block">
-            <span class="label">Date Found</span>
-            <input v-model="form.date" class="field mt-1" type="date" />
-            <span v-if=\"errors.date\" class="text-xs text-danger mt-1 block">{{ errors.date }}</span>
-          </label>
-
-          <label class="block sm:col-span-2">
-            <span class="label">Contact Email</span>
-            <input v-model="form.contactEmail" class="field mt-1" type="email" placeholder="owner-lookup@carsu.edu.ph" />
-            <span v-if=\"errors.contactEmail\" class="text-xs text-danger mt-1 block">{{ errors.contactEmail }}</span>
-          </label>
-
-          <div class="block sm:col-span-2">
-            <span class="label">Photo Upload</span>
-            <ImageUploader v-model="form.photo" class="mt-1" />
-          </div>
-        </div>
-
-        <div v-if="errors.form" class="rounded-md bg-danger/10 p-3 text-sm text-danger">
-          {{ errors.form }}
-        </div>
-
-        <div v-if="reference" class="rounded-md bg-green-50 p-4 border border-green-100 text-sm text-dark">
-          <p class="font-semibold text-primary">Report Saved Successfully!</p>
-          <p class="mt-1">Please record your item reference ID to manage updates: <code class="font-mono bg-light px-1 py-0.5 rounded text-primary font-bold">{{ reference }}</code></p>
-        </div>
-
-        <div class="mt-6 flex justify-end">
-          <button class="btn-primary w-full sm:w-auto px-6 py-2.5" type="submit">
-            Submit Found Report
-          </button>
-        </div>
-      </form>
-    </div>
-  </main>
-</template>
