@@ -48,12 +48,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/lost-reports/{id}', [LostReportController::class, 'destroy']);
 
     // 🎯 MATCH FRONTEND DESIGNS: Personal Student Dashboard Feeds
-    // Re-routed from old /my-reports/lost to match frontend fetch calls
     Route::get('/my-lost-reports', [LostReportController::class, 'myReports']);
     Route::get('/my-found-reports', [ItemController::class, 'myReports']);
 
     // 🟢 Claims Management Endpoints
-    // Student Claim Operations
     Route::post('/claims', [ClaimController::class, 'store']);
     Route::get('/my-claims', [ClaimController::class, 'myClaims']);
 
@@ -71,8 +69,25 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // ==========================================
-// Maintenance Utilities
+// Maintenance Utilities (Publicly Accessible)
 // ==========================================
+
+// 🎯 AUTOMATIC SYMLINK GENERATION FOR RENDER FREE TIER
+Route::get('/force-storage-link', function() {
+    try {
+        \Artisan::call('storage:link');
+        return response()->json([
+            'success' => true, 
+            'message' => 'The public/storage folder shortcut has been successfully linked!'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false, 
+            'message' => 'Symlink execution skipped or already active: ' . $e->getMessage()
+        ]);
+    }
+});
+
 // Temporary database utility to remove alpha-numeric test strings
 Route::get('/clean-db-junk', function() {
     try {
