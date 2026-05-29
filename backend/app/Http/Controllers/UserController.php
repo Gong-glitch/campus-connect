@@ -18,7 +18,8 @@ class UserController extends Controller
     {
         $this->requireAdmin($request);
 
-        $users = User::where('role', 'user')
+        // 🛠️ FIX: Fetch any profile that is NOT an admin so 'student' and 'user' both show up
+        $users = User::where('role', '!=', 'admin')
             ->orderBy('created_at', 'desc')
             ->get(['id', 'name', 'school_id', 'email', 'status', 'created_at']);
 
@@ -29,7 +30,8 @@ class UserController extends Controller
     {
         $this->requireAdmin($request);
 
-        $user = User::where('role', 'user')->findOrFail($id);
+        // 🛠️ FIX: Update filter to match non-admin records
+        $user = User::where('role', '!=', 'admin')->findOrFail($id);
 
         $fields = $request->validate([
             'status' => 'required|string|in:Active,Suspended',
@@ -44,7 +46,8 @@ class UserController extends Controller
     {
         $this->requireAdmin($request);
 
-        $user = User::where('role', 'user')->findOrFail($id);
+        // 🛠️ FIX: Update filter to match non-admin records
+        $user = User::where('role', '!=', 'admin')->findOrFail($id);
         $user->delete();
 
         return response()->json(['message' => 'User deleted.']);
