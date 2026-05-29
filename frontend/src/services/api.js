@@ -64,9 +64,22 @@ async function request(method, path, body) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok)
-    throw new Error(data.message || `Request failed (${res.status}).`);
+  // 🎯 FIXED: Read the response as text first to protect against stream reading failures
+  const responseText = await res.text().catch(() => "");
+
+  let data = {};
+  if (responseText.trim()) {
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse server JSON response:", responseText);
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(data.message || `Request failed with status (${res.status}).`);
+  }
+
   return data;
 }
 
@@ -98,7 +111,14 @@ export const api = {
       body,
     });
 
-    const data = await res.json().catch(() => ({}));
+    const responseText = await res.text().catch(() => "");
+    let data = {};
+    if (responseText.trim()) {
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {}
+    }
+
     if (!res.ok) {
       throw new Error(data.message || `Upload failed (${res.status}).`);
     }
