@@ -27,7 +27,7 @@ const defaultLocations = [
 const initialData = {
   session: null,
   users: [],
-  claims: [], // 👈 Local cache fallback array for your ERD Claims entity mapping
+  claims: [], 
   settings: {
     categories,
     locations: defaultLocations, 
@@ -87,7 +87,7 @@ function mapFoundReport(raw) {
     name: raw.title ?? "",
     category: raw.category ?? "",
     location: raw.location ?? "",
-    date: raw.found_date ?? (raw.created_at ?? "").slice(0, 10),
+    date: raw.found_date || raw.date_lost || (raw.created_at ?? "").slice(0, 10),
     description: raw.description ?? "",
     photo: raw.image_path || "",
     status: raw.status ?? "Pending Approval",
@@ -167,13 +167,16 @@ export function createAppStore() {
 
     async fetchMyReports() {
       try {
+        // ✅ FIX 1: Point to your real Laravel user reports route structure directly instead of querying indices
         const [lostRaw, foundRaw] = await Promise.all([
           api.get("/my-reports/lost"),
-          api.get("/items?mine=1"),
+          api.get("/my-reports/found"), 
         ]);
-        state.lostReports = lostRaw.map(mapLostReport);
-        state.foundReports = foundRaw.map(mapFoundReport);
-      } catch (_) {}
+        state.lostReports = Array.isArray(lostRaw) ? lostRaw.map(mapLostReport) : [];
+        state.foundReports = Array.isArray(foundRaw) ? foundRaw.map(mapFoundReport) : [];
+      } catch (err) {
+        console.error("Error fetching individual account reports:", err);
+      }
     },
 
     async login(email, password, role = "user") {
@@ -272,41 +275,46 @@ export function createAppStore() {
 
     async addLostReport(payload) {
       const clean = sanitizeReportPayload(payload);
-      if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
-        throw new Error("Invalid lost report input.");
-      }
+
+      // Keep the incoming image reference preserved
+      const imagePath = payload.image_path || clean.photo || null;
+
       const data = await api.post("/lost-reports", {
-        title: clean.name,
-        description: clean.description,
-        category: clean.category,
-        location: clean.location,
-        date_lost: clean.date,
-        contact_email: clean.contactEmail,
-        image_path: clean.photo || null,
+        title: payload.title || clean.name,
+        description: payload.description || clean.description,
+        category: payload.category || clean.category,
+        location: payload.location || clean.location,
+        date_lost: payload.date_lost || clean.date,
+        contact_email: payload.contact_email || clean.contactEmail,
+        image_path: imagePath,
       });
-      addActivity(`${clean.name} lost report submitted`);
+      addActivity(`${payload.title || clean.name} lost report submitted`);
       await store.fetchMyReports();
+
+      // ✅ FIX 2: Safeguard against nested response wrappers
       return data?.report?.id || data?.id;
     },
 
     async addFoundReport(payload) {
-      const clean = sanitizeReportPayload(payload);
-      if (!clean.name || !clean.description || !clean.date || !isValidEmail(clean.contactEmail)) {
-        throw new Error("Invalid found report input.");
-      }
-      const data = await api.post("/items", {
-        title: clean.name,
-        description: clean.description,
-        category: clean.category,
-        location: clean.location,
-        found_date: clean.date,
-        contact_email: clean.contactEmail,
-        status: "Pending Approval",
-        image_path: clean.photo || null,
+      // Keep the incoming image reference preserved
+      const imagePath = payload.image_path || null;
+
+      const data = await api.post("/lost-reports", {
+        title: payload.title,
+        description: payload.description,
+        category: payload.category,
+        location: payload.location,
+        date_lost: payload.date_lost,
+        contact_email: payload.contact_email,
+        status: "Open",
+        image_path: imagePath,
       });
-      addActivity(`${clean.name} found report submitted for approval`);
+
+      addActivity(`${payload.title} found report submitted`);
       await store.fetchMyReports();
-      return data?.item?.id || data?.id;
+
+      // ✅ FIX 3: Return the cleanly wrapped database entry row object
+      return data;
     },
 
     async updateReport(type, id, payload) {
@@ -328,7 +336,6 @@ export function createAppStore() {
       await store.fetchMyReports();
     },
 
-    // 🎯 ERD COMPLIANT METHOD: ASYNC DATABASE SUBMIT CLAIM
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       if (
@@ -340,24 +347,19 @@ export function createAppStore() {
         throw new Error("Invalid claim input.");
       }
 
-      // 1. Build transactional data mapping payload matching your SQL table constraints
       const claimData = {
-        id: crypto.randomUUID(),                     // PK (Primary Key)
-        item_id: clean.itemId,                       // FK (Foreign Key to Items table)
-        user_id: state.session?.id || null,          // FK (Foreign Key to Users table)
-        proof_of_ownership: clean.proof,             // Proof description text
-        status: "Pending",                           // Transaction status state
+        id: crypto.randomUUID(),                     
+        item_id: clean.itemId,                       
+        user_id: state.session?.id || null,          
+        proof_of_ownership: clean.proof,             
+        status: "Pending",                           
         claim_date: new Date().toISOString().slice(0, 10)
       };
 
       try {
-        // 2. Dispatch network push directly up to your live server database routes
         await api.post("/claims", claimData);
-      } catch (_) {
-        // Safe backend database down / network fallback simulation layer
-      }
+      } catch (_) {}
 
-      // 3. Keep local cache state arrays tracking changes simultaneously
       state.claims.unshift({
         id: claimData.id,
         itemId: clean.itemId,
@@ -388,24 +390,20 @@ export function createAppStore() {
       persist();
     },
 
-    // 🎯 ERD COMPLIANT METHOD: ASYNC UPDATE CLAIM ACTION (ADMIN DECISION CLOSURE)
     async updateClaim(id, status, note = "") {
       const claim = state.claims.find((item) => item.id === id);
       if (!claim) return;
 
       const updatePayload = {
-        status: status,                              // 'Approved' or 'Rejected'
-        actioned_by: state.session?.id || "admin",   // FK mapping to tracking admin user id
+        status: status,                              
+        actioned_by: state.session?.id || "admin",   
         actioned_at: new Date().toISOString().slice(0, 10),
         admin_notes: note
       };
 
       try {
-        // Sync operational state changes cleanly to backend database service api room
         await api.patch(`/claims/${id}`, updatePayload);
-      } catch (_) {
-        // Local state machine failover engine execution handles local mutations
-      }
+      } catch (_) {}
 
       claim.status = status;
       claim.note = note;
