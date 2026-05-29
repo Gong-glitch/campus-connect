@@ -56,11 +56,14 @@ function loadState() {
   return base;
 }
 
-// 🖼️ Re-routed to fetch images natively from your Render Backend Storage folder
+// 🖼️ Re-routed to fetch images natively via your Render Backend streaming utility route
 function formatImagePath(photoUrl) {
   if (photoUrl && !photoUrl.startsWith("http")) {
-    const cleanPath = photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`;
-    return `${BACKEND_BASE}${cleanPath}`;
+    // Strip out any redundant leading slashes or old "storage/" prefix markers
+    const cleanPath = photoUrl.replace(/^\/?(storage\/)?/, "");
+
+    // Force requests to point to your streaming endpoint at /api/storage/...
+    return `${BACKEND_BASE}/api/storage/${cleanPath}`;
   }
   return photoUrl;
 }
@@ -180,7 +183,6 @@ export function createAppStore() {
       return mapItem(raw);
     },
 
-    // 🎯 FIX A APPLIED: Safely query user data with independent safety hooks to handle 401 statuses gracefully
     async fetchMyReports() {
       try {
         const lostRaw = await api.get("/my-lost-reports").catch(() => []);
