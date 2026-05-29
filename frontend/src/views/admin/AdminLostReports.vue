@@ -8,6 +8,7 @@ import { api } from "../../services/api";
 
 const selected = ref(null);
 const rows = ref([]);
+const errorMessage = ref("");
 
 function mapRow(raw) {
   return {
@@ -24,24 +25,30 @@ function mapRow(raw) {
 }
 
 async function fetchReports() {
+  errorMessage.value = "";
   try {
-    // 🛡️ Grab the active authentication token securely from client storage
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     };
 
-    // 🎯 Hit the correct base route with our authentication headers
+    // Request data from the reports endpoint
     const response = await api.get("/lost-reports", config);
 
-    // Unpack data cleanly regardless of array wrappers or Laravel pagination structures
     const dataArray = Array.isArray(response) 
       ? response 
       : (response?.data || response?.reports || []);
 
     rows.value = dataArray.map(mapRow);
   } catch (err) {
-    console.error("Admin dataset resolution encountered an error:", err);
+    console.error("🔒 Admin Fetch Error Details:", err);
+
+    // Check if the server explicitly rejected the credentials with a 403 status code
+    if (err.response?.status === 403 || err.message?.includes("403")) {
+      errorMessage.value = "Your current Admin account doesn't have database permissions to view user reports (403 Forbidden).";
+    } else {
+      errorMessage.value = "Failed to load records due to a server authentication error.";
+    }
   }
 }
 
@@ -51,7 +58,6 @@ async function flagMatched(id) {
   try {
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-
     await api.patch(`/lost-reports/${id}`, { status: "Matched" }, config);
     await fetchReports();
   } catch (_) {}
@@ -61,7 +67,6 @@ async function archive(id) {
   try {
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-
     await api.patch(`/lost-reports/${id}`, { status: "Archived" }, config);
     await fetchReports();
   } catch (_) {}
@@ -71,7 +76,6 @@ async function remove(id) {
   try {
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-
     await api.delete(`/lost-reports/${id}`, config);
     await fetchReports();
   } catch (_) {}
@@ -91,6 +95,11 @@ const columns = [
   <AppNavbar role="admin" />
   <main class="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
     <h1 class="text-3xl font-bold text-dark">Manage Lost Reports</h1>
+
+    <div v-if="errorMessage" class="rounded bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+      {{ errorMessage }}
+    </div>
+
     <AdminTable :columns="columns" :rows="rows">
       <template #status="{ row }"><StatusBadge :status="row.status" /></template>
       <template #actions="{ row }">
