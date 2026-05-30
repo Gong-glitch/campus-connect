@@ -183,7 +183,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 Left perfectly intact to ensure your Users page doesn't break
     async fetchUsers() {
       try {
         const data = await api.get("/admin/users");
@@ -357,7 +356,6 @@ export function createAppStore() {
       await store.fetchMyReports();
     },
 
-    // 🟢 FIXED: Safe array extraction for Admin Claims
     async fetchAdminClaims() {
       try {
         const response = await api.get("/admin/claims");
@@ -380,7 +378,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 FIXED: Safe array extraction for My Claims
     async fetchMyClaims() {
       try {
         const response = await api.get("/my-claims");
@@ -404,7 +401,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 FIXED: Properly sends the form inputs down to the backend
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       const itemId = clean.itemId || payload.itemId || payload.item_id;
@@ -429,7 +425,8 @@ export function createAppStore() {
     },
 
     async approveFoundReport(id) {
-      await api.patch(`/items/${id}`, { status: "Unclaimed" });
+      // FIXED: Sets item status to "Found" instead of "Unclaimed" so the backend API allows student claims.
+      await api.patch(`/items/${id}`, { status: "Found" });
       addActivity("Found report approved and published");
       await store.fetchItems();
     },
