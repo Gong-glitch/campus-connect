@@ -9,6 +9,18 @@ use Illuminate\Http\Request;
 class ClaimController extends Controller
 {
     /**
+     * Helper method to verify admin credentials across multiple structural properties.
+     */
+    private function checkIsAdmin(Request $request)
+    {
+        $user = $request->user();
+        return $user && (
+            (isset($user->role) && strtolower($user->role) === 'admin') || 
+            (isset($user->is_admin) && (bool)$user->is_admin === true)
+        );
+    }
+
+    /**
      * Student: Log a claim verification request against an item.
      */
     public function store(Request $request)
@@ -68,7 +80,7 @@ class ClaimController extends Controller
      */
     public function index(Request $request)
     {
-        if ($request->user()->role !== 'admin') {
+        if (!$this->checkIsAdmin($request)) {
             return response()->json(['message' => 'Unauthorized admin dashboard context.'], 403);
         }
 
@@ -84,7 +96,7 @@ class ClaimController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
-        if ($request->user()->role !== 'admin') {
+        if (!$this->checkIsAdmin($request)) {
             return response()->json(['message' => 'Unauthorized admin operation context.'], 403);
         }
 
@@ -124,7 +136,7 @@ class ClaimController extends Controller
      */
     public function destroy(Request $request, $id)
     {
-        if ($request->user()->role !== 'admin') {
+        if (!$this->checkIsAdmin($request)) {
             return response()->json(['message' => 'Unauthorized admin operation context.'], 403);
         }
 
