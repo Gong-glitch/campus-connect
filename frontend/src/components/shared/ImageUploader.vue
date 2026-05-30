@@ -4,30 +4,64 @@ import { ref, watch } from "vue";
 import { api } from "../../services/api";
 
 const model = defineModel({ type: String, default: "" });
-const preview = ref(model.value || "");
+const preview = ref("");
 const uploading = ref(false);
 const error = ref("");
 
+// 🖼️ DYNAMIC PREVIEW CLEANING ENGINE
+// Formats raw backend database relative strings into live asset stream links
+function formatStorageUrl(pathString) {
+  if (!pathString) return "";
+  if (pathString.startsWith("data:") || pathString.startsWith("http")) return pathString;
+
+  let cleanPath = pathString.trim().replace(/^\//, "");
+
+  if (cleanPath.startsWith("public/storage/")) {
+    cleanPath = cleanPath.substring(15);
+  } else if (cleanPath.startsWith("storage/")) {
+    cleanPath = cleanPath.substring(8);
+  } else if (cleanPath.startsWith("app/public/")) {
+    cleanPath = cleanPath.substring(11);
+  }
+
+  return `https://campus-connect-api-0s3b.onrender.com/api/storage/${cleanPath}`;
+}
+
+// Keep the initial view sanitized correctly
+if (model.value) {
+  preview.value = formatStorageUrl(model.value);
+}
+
 watch(() => model.value, (val) => {
-  if (val && val !== preview.value) preview.value = val;
+  if (val) {
+    // Only parse it if it isn't a temporary local FileReader base64 block
+    if (!val.startsWith("data:")) {
+      preview.value = formatStorageUrl(val);
+    }
+  } else {
+    preview.value = "";
+  }
 });
 
 async function setFile(file) {
   if (!file) return;
   error.value = "";
-  // Show a local preview immediately while the upload is in-flight
+
+  // ⚡ Show local file preview instantly while loading
   const reader = new FileReader();
-  reader.onload = (e) => { preview.value = e.target.result; };
+  reader.onload = (e) => { 
+    preview.value = e.target.result; 
+  };
   reader.readAsDataURL(file);
 
   uploading.value = true;
   try {
     const url = await api.upload(file);
     model.value = url;
-    preview.value = url;
+    preview.value = formatStorageUrl(url);
   } catch (err) {
     error.value = err.message || "Upload failed.";
-    preview.value = model.value || "";
+    preview.value = model.value ? formatStorageUrl(model.value) : "";
   } finally {
     uploading.value = false;
   }
