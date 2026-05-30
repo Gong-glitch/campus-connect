@@ -46,7 +46,14 @@ async function remove() {
     const type = tab.value;
     const id = deleting.value.id;
     const endpoint = type === "lost" ? `/lost-reports/${id}` : `/items/${id}`;
-    await api.delete(endpoint);
+
+    // FIXED: Extract token and inject explicit authorization headers to eliminate 401 failures
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const config = {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    };
+
+    await api.delete(endpoint, config);
     deleting.value = null;
     await loadDashboardData();
   } catch (err) {

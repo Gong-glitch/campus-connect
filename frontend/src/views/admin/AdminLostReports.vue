@@ -49,13 +49,8 @@ function mapRow(raw) {
 async function fetchReports() {
   errorMessage.value = "";
   try {
-    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-    const config = {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    };
-
-    // FIXED: Changed endpoint to /admin/lost-reports to bypass 403 authorization guards
-    const response = await api.get("/admin/lost-reports", config);
+    // FIXED: Removed manual token setup. api.get automatically handles the token headers behind the scenes!
+    const response = await api.get("/admin/lost-reports");
     const dataArray = Array.isArray(response) 
       ? response 
       : (response?.data || response?.reports || []);
@@ -75,30 +70,24 @@ onMounted(fetchReports);
 
 async function flagMatched(id) {
   try {
-    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-    const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    // FIXED: Route administrative updates through the admin endpoint namespace
-    await api.patch(`/admin/lost-reports/${id}`, { status: "Matched" }, config);
+    // FIXED: Stripped manual config object out. Your API wrapper only accepts path and body.
+    await api.patch(`/admin/lost-reports/${id}`, { status: "Matched" });
     await fetchReports();
   } catch (_) {}
 }
 
 async function archive(id) {
   try {
-    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-    const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    // FIXED: Route administrative updates through the admin endpoint namespace
-    await api.patch(`/admin/lost-reports/${id}`, { status: "Archived" }, config);
+    // FIXED: Let the automated api utility inject authentic tokens cleanly
+    await api.patch(`/admin/lost-reports/${id}`, { status: "Archived" });
     await fetchReports();
   } catch (_) {}
 }
 
 async function remove(id) {
   try {
-    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-    const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    // FIXED: Route administrative deletes through the admin endpoint namespace
-    await api.delete(`/admin/lost-reports/${id}`, config);
+    // FIXED: Stripped manual config context from deletions
+    await api.delete(`/admin/lost-reports/${id}`);
     await fetchReports();
   } catch (_) {}
 }

@@ -1,100 +1,126 @@
-// 🌍 Switches seamlessly between your development environment and your true Render container!
-const BASE = import.meta.env.DEV
-  ? "/api"
-  : "https://campus-connect-api-0s3b.onrender.com/api"; // 🎯 Your live API endpoint
+<script setup>
+import { computed, ref, onMounted, inject } from "vue";
+import { Loader2 } from "lucide-vue-next";
+import AppNavbar from "../../components/shared/AppNavbar.vue";
+import ConfirmDialog from "../../components/shared/ConfirmDialog.vue";
+import StatusBadge from "../../components/shared/StatusBadge.vue";
+import { appStoreKey } from "../../store/appStore";
+import { api } from "../../services/api";
 
-// 🔍 ISOLATED KEY: Saves your token safely away from the store state persistence
-const REAL_TOKEN_KEY = "campus-connect-auth-token";
+const store = inject(appStoreKey);
 
-export function getToken() {
+const tab = ref("lost");
+const loading = ref(true);
+const deleting = ref(null);
+const deleteLoading = ref(false);
+
+const activeReports = computed(() => {
+  return tab.value === "lost" 
+    ? store.state.lostReports 
+    : store.state.foundReports;
+});
+
+async function loadDashboardData() {
+  loading.value = true;
   try {
-    return localStorage.getItem(REAL_TOKEN_KEY) || null;
-  } catch (error) {
-    console.error("Error reading token from local storage:", error);
-    return null;
+    if (store && typeof store.fetchMyReports === "function") {
+      await store.fetchMyReports();
+    }
+  } catch (err) {
+    console.error("Dashboard engine query error:", err);
+  } finally {
+    loading.value = false;
   }
 }
 
-export function setToken(token) {
+onMounted(() => {
+  loadDashboardData();
+});
+
+async function remove() {
+  deleteLoading.value = true;
   try {
-    if (token) {
-      localStorage.setItem(REAL_TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(REAL_TOKEN_KEY);
-    }
-  } catch (error) {
-    console.error("Error setting token in local storage:", error);
+    const type = tab.value;
+    const id = deleting.value.id;
+    const endpoint = type === "lost" ? `/lost-reports/${id}` : `/items/${id}`;
+
+    // FIXED: Let the api utility automatically handle the token authentication seamlessly!
+    await api.delete(endpoint);
+
+    deleting.value = null;
+    await loadDashboardData();
+  } catch (err) {
+    alert(err.message || "Failed to delete report.");
+  } finally {
+    deleteLoading.value = false;
   }
 }
+</script>
 
-async function request(method, path, body) {
-  const headers = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+<template>
+  <AppNavbar role="user" />
+  <main class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <h1 class="text-3xl font-bold text-dark">My Reports</h1>
 
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const targetUrl = `${BASE}${cleanPath}`;
+    <div class="mt-5 flex gap-2 rounded-md bg-white p-2 shadow-soft">
+      <button 
+        class="flex-1 rounded-md px-4 py-2 font-semibold transition" 
+        :class="tab === 'lost' ? 'bg-primary text-white' : 'text-muted'" 
+        @click="tab = 'lost'"
+      >
+        My Lost Reports
+      </button>
+      <button 
+        class="flex-1 rounded-md px-4 py-2 font-semibold transition" 
+        :class="tab === 'found' ? 'bg-primary text-white' : 'text-muted'" 
+        @click="tab = 'found'"
+      >
+        My Found Reports
+      </button>
+    </div>
 
-  const res = await fetch(targetUrl, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+    <div v-if="loading" class="mt-12 flex justify-center items-center">
+      <Loader2 class="h-8 w-8 animate-spin text-primary" />
+    </div>
 
-  const responseText = await res.text().catch(() => "");
+    <div v-else class="mt-6 grid gap-4">
+      <article v-for="report in activeReports" :key="report.id" class="rounded-md bg-white p-5 shadow-soft">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <img 
+              v-if="report.photo" 
+              :src="report.photo" 
+              alt="Report image" 
+              class="h-16 w-16 rounded-md object-cover bg-gray-100"
+              @error="(e) => e.target.src = 'https://placehold.co/150?text=No+Image'"
+            />
+            <div>
+              <h2 class="text-xl font-bold text-dark">{{ report.name || "Unnamed Item" }}</h2>
+              <p class="text-sm text-muted">
+                {{ report.date || "No Date" }} / {{ report.location || "Unknown Location" }}
+              </p>
+            </div>
+          </div>
+          <StatusBadge :status="report.status" />
+        </div>
+        <p class="mt-3 text-sm text-muted">{{ report.description }}</p>
+        <div class="mt-4 flex gap-2">
+          <button class="btn-danger" @click="deleting = report">Delete</button>
+        </div>
+      </article>
 
-  let data = {};
-  if (responseText.trim()) {
-    try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Server returned non-JSON text:", responseText);
-      throw new Error("Target API route misconfigured or returned HTML.");
-    }
-  }
+      <p v-if="!activeReports || !activeReports.length" class="rounded-md bg-white p-8 text-center text-muted shadow-soft">
+        No reports yet.
+      </p>
+    </div>
 
-  if (!res.ok) {
-    throw new Error(data.message || `Request failed with status (${res.status}).`);
-  }
-
-  return data;
-}
-
-export const api = {
-  get: (path) => request("GET", path),
-  post: (path, body) => request("POST", path, body),
-  put: (path, body) => request("PUT", path, body),
-  patch: (path, body) => request("PATCH", path, body),
-  delete: (path) => request("DELETE", path),
-
-  async upload(file) {
-    const headers = { Accept: "application/json" };
-    const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const body = new FormData();
-    body.append("image", file);
-
-    const res = await fetch(`${BASE}/upload`, {
-      method: "POST",
-      headers,
-      body,
-    });
-
-    const responseText = await res.text().catch(() => "");
-    let data = {};
-    if (responseText.trim()) {
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {}
-    }
-
-    if (!res.ok) {
-      throw new Error(data.message || `Upload failed (${res.status}).`);
-    }
-    return data.url;
-  },
-};
+    <ConfirmDialog
+      :open="Boolean(deleting)"
+      :loading="deleteLoading"
+      title="Delete report"
+      message="This report will be permanently removed."
+      @cancel="deleting = null"
+      @confirm="remove"
+    />
+  </main>
+</template>
