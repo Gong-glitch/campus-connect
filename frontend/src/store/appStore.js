@@ -183,6 +183,7 @@ export function createAppStore() {
       }
     },
 
+    // 🟢 Left perfectly intact to ensure your Users page doesn't break
     async fetchUsers() {
       try {
         const data = await api.get("/admin/users");
@@ -356,69 +357,75 @@ export function createAppStore() {
       await store.fetchMyReports();
     },
 
+    // 🟢 FIXED: Safe array extraction for Admin Claims
     async fetchAdminClaims() {
       try {
-        const data = await api.get("/admin/claims");
-        if (Array.isArray(data)) {
-          state.claims = data.map(claim => ({
-            id: claim.id,
-            itemId: claim.item_id,
-            itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
-            claimantName: claim.user?.name || "Unknown Student",
-            schoolId: claim.user?.school_id || "N/A",
-            contactEmail: claim.user?.email || "",
-            proof: claim.proof_text || claim.proof_of_ownership || "",
-            date: (claim.created_at || claim.claim_date || "").slice(0, 10),
-            status: claim.status || "Pending",
-            note: claim.admin_notes || ""
-          }));
-        }
+        const response = await api.get("/admin/claims");
+        const list = Array.isArray(response) ? response : (response?.data || response?.claims || []);
+
+        state.claims = list.map(claim => ({
+          id: claim.id,
+          itemId: claim.item_id,
+          itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
+          claimantName: claim.user?.name || claim.claimant_name || "Unknown Student",
+          schoolId: claim.user?.school_id || claim.school_id || "N/A",
+          contactEmail: claim.user?.email || claim.contact_email || "",
+          proof: claim.proof_text || claim.proof_of_ownership || "",
+          date: (claim.created_at || claim.claim_date || "").slice(0, 10),
+          status: claim.status || "Pending",
+          note: claim.admin_notes || ""
+        }));
       } catch (error) {
         console.error("Failed to query system verification claim rows:", error);
       }
     },
 
-    // 🟢 MISSING FUNCTION INJECTED HERE:
+    // 🟢 FIXED: Safe array extraction for My Claims
     async fetchMyClaims() {
       try {
-        const data = await api.get("/my-claims");
-        if (Array.isArray(data)) {
-          state.claims = data.map(claim => ({
-            id: claim.id,
-            itemId: claim.item_id,
-            itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
-            claimantName: "Me",
-            schoolId: state.session?.schoolId || "N/A",
-            contactEmail: state.session?.email || "",
-            proof: claim.proof_text || claim.proof_of_ownership || "",
-            date: (claim.created_at || claim.claim_date || "").slice(0, 10),
-            status: claim.status || "Pending",
-            note: claim.admin_notes || "",
-            user_id: claim.user_id || state.session?.id
-          }));
-        }
+        const response = await api.get("/my-claims");
+        const list = Array.isArray(response) ? response : (response?.data || response?.claims || []);
+
+        state.claims = list.map(claim => ({
+          id: claim.id,
+          itemId: claim.item_id,
+          itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
+          claimantName: claim.claimant_name || "Me",
+          schoolId: claim.school_id || state.session?.schoolId || "N/A",
+          contactEmail: claim.contact_email || state.session?.email || "",
+          proof: claim.proof_text || claim.proof_of_ownership || "",
+          date: (claim.created_at || claim.claim_date || "").slice(0, 10),
+          status: claim.status || "Pending",
+          note: claim.admin_notes || "",
+          user_id: claim.user_id || state.session?.id
+        }));
       } catch (error) {
         console.error("Failed to query my personal verification claim rows:", error);
       }
     },
 
+    // 🟢 FIXED: Properly sends the form inputs down to the backend
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
-      if (
-        !clean.claimantName ||
-        !isValidSchoolId(clean.schoolId) ||
-        !isValidEmail(clean.contactEmail) ||
-        clean.proof.length < 10
-      ) {
-        throw new Error("Invalid claim input.");
+      const itemId = clean.itemId || payload.itemId || payload.item_id;
+      const proof = clean.proof || payload.proof || payload.proof_of_ownership;
+      const schoolId = clean.schoolId || payload.schoolId || payload.school_id || state.session?.schoolId;
+      const email = clean.contactEmail || payload.contactEmail || payload.email || state.session?.email;
+      const name = clean.claimantName || payload.claimantName || payload.name || payload.full_name || state.session?.name;
+
+      if (!itemId || !proof) {
+        throw new Error("Invalid claim input. Item ID and Proof are required.");
       }
 
       await api.post("/claims", {
-        item_id: clean.itemId,                       
-        proof_text: clean.proof,             
+        item_id: itemId,                       
+        proof_text: proof,
+        school_id: schoolId,
+        contact_email: email,
+        claimant_name: name
       });
 
-      addActivity(`${clean.claimantName} submitted database claim row for ${clean.itemName}`);
+      addActivity(`Claim submitted for item reference ${itemId}`);
     },
 
     async approveFoundReport(id) {

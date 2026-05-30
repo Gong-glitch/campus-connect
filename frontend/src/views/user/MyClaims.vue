@@ -8,7 +8,7 @@ const store = useStore();
 const { state } = store;
 const isLoading = ref(false);
 
-// 🚀 THE MISSING TRIGGER: This forces the browser to pull your data!
+// 🟢 Triggers data fetch on page load
 onMounted(async () => {
   isLoading.value = true;
   try {
@@ -22,7 +22,6 @@ onMounted(async () => {
   }
 });
 
-// Filter rows in the claims table belonging only to the currently logged-in student
 const myClaims = computed(() => {
   const currentUserId = state.session?.id;
   return state.claims.filter(

@@ -9,7 +9,7 @@ const rejecting = ref(null);
 const note = ref("");
 const isLoading = ref(false);
 
-// 🚀 TRIGGER THE FETCH WHEN ADMIN OPENS THE PAGE
+// 🟢 Triggers data fetch on page load
 onMounted(async () => {
   isLoading.value = true;
   try {
@@ -35,13 +35,13 @@ const columns = [
 async function approve(id) {
   if (confirm("Approve claim request and mark item as resolved?")) {
     await store.updateClaim(id, "Approved");
-    await store.fetchAdminClaims(); // Reload table after approval
+    await store.fetchAdminClaims(); 
   }
 }
 
 async function rejectSubmit() {
   await store.updateClaim(rejecting.value.id, "Rejected", note.value);
-  await store.fetchAdminClaims(); // Reload table after rejection
+  await store.fetchAdminClaims(); 
   rejecting.value = null;
   note.value = "";
 }
@@ -49,7 +49,7 @@ async function rejectSubmit() {
 async function deleteRow(id) {
   if (confirm("Permanently drop this log entry tracking record?")) {
     await store.deleteClaim(id);
-    await store.fetchAdminClaims(); // Reload table after deletion
+    await store.fetchAdminClaims(); 
   }
 }
 </script>
