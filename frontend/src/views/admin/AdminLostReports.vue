@@ -10,6 +10,11 @@ const selected = ref(null);
 const rows = ref([]);
 const errorMessage = ref("");
 
+// 🎯 ENDPOINT CONFIGURATION
+// If your backend throws a 404, change this string to match your exact Laravel route group.
+// Common options: "/admin/reports", "/reports", "/admin/items"
+const ENDPOINT = "/admin/reports"; 
+
 function mapRow(raw) {
   let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
   let finalPhotoUrl = null;
@@ -49,8 +54,7 @@ function mapRow(raw) {
 async function fetchReports() {
   errorMessage.value = "";
   try {
-    // FIXED: Removed manual token setup. api.get automatically handles the token headers behind the scenes!
-    const response = await api.get("/admin/lost-reports");
+    const response = await api.get(ENDPOINT);
     const dataArray = Array.isArray(response) 
       ? response 
       : (response?.data || response?.reports || []);
@@ -58,10 +62,12 @@ async function fetchReports() {
     rows.value = dataArray.map(mapRow);
   } catch (err) {
     console.error("🔒 Admin Fetch Error Details:", err);
-    if (err.response?.status === 403 || err.message?.includes("403")) {
-      errorMessage.value = "Your current Admin account doesn't have database permissions to view user reports (403 Forbidden).";
+    if (err.message?.includes("404")) {
+      errorMessage.value = `Route not found: ${ENDPOINT} returned 404. Check your Laravel api.php routes file.`;
+    } else if (err.message?.includes("403")) {
+      errorMessage.value = "Your current account token is valid, but it doesn't have database admin flags (403 Forbidden).";
     } else {
-      errorMessage.value = "Failed to load records due to a server authentication error.";
+      errorMessage.value = "Failed to load admin records due to an interface communication error.";
     }
   }
 }
@@ -70,24 +76,21 @@ onMounted(fetchReports);
 
 async function flagMatched(id) {
   try {
-    // FIXED: Stripped manual config object out. Your API wrapper only accepts path and body.
-    await api.patch(`/admin/lost-reports/${id}`, { status: "Matched" });
+    await api.patch(`${ENDPOINT}/${id}`, { status: "Matched" });
     await fetchReports();
   } catch (_) {}
 }
 
 async function archive(id) {
   try {
-    // FIXED: Let the automated api utility inject authentic tokens cleanly
-    await api.patch(`/admin/lost-reports/${id}`, { status: "Archived" });
+    await api.patch(`${ENDPOINT}/${id}`, { status: "Archived" });
     await fetchReports();
   } catch (_) {}
 }
 
 async function remove(id) {
   try {
-    // FIXED: Stripped manual config context from deletions
-    await api.delete(`/admin/lost-reports/${id}`);
+    await api.delete(`${ENDPOINT}/${id}`);
     await fetchReports();
   } catch (_) {}
 }

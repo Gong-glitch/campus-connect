@@ -1,14 +1,16 @@
-// 🌍 Switches seamlessly between your development environment and your true Render container!
 const BASE = import.meta.env.DEV
   ? "/api"
-  : "https://campus-connect-api-0s3b.onrender.com/api"; // 🎯 Your live API endpoint
-
-// 🔍 ISOLATED KEY: Saves your token safely away from the store state persistence
-const REAL_TOKEN_KEY = "campus-connect-auth-token";
+  : "https://campus-connect-api-0s3b.onrender.com/api";
 
 export function getToken() {
   try {
-    return localStorage.getItem(REAL_TOKEN_KEY) || null;
+    // 🔍 Checks every possible location where your authentication system might save the token
+    return (
+      localStorage.getItem("campus-connect-auth-token") ||
+      localStorage.getItem("auth_token") ||
+      sessionStorage.getItem("auth_token") ||
+      null
+    );
   } catch (error) {
     console.error("Error reading token from local storage:", error);
     return null;
@@ -18,9 +20,11 @@ export function getToken() {
 export function setToken(token) {
   try {
     if (token) {
-      localStorage.setItem(REAL_TOKEN_KEY, token);
+      localStorage.setItem("campus-connect-auth-token", token);
+      localStorage.setItem("auth_token", token); // Syncs with legacy components
     } else {
-      localStorage.removeItem(REAL_TOKEN_KEY);
+      localStorage.removeItem("campus-connect-auth-token");
+      localStorage.removeItem("auth_token");
     }
   } catch (error) {
     console.error("Error setting token in local storage:", error);
