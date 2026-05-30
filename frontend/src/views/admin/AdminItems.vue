@@ -43,6 +43,31 @@ const pendingColumns = [
   { key: "status",       label: "Review Status" }
 ];
 
+// 🖼️ DYNAMIC IMAGE CLEANING PIPELINE
+// Formats raw paths out of row entries into live asset stream links
+function getCleanPhotoUrl(rowItem) {
+  if (!rowItem) return "https://placehold.co/150?text=No+Image";
+
+  let rawPath = rowItem.photo ?? rowItem.image_path ?? rowItem.image ?? null;
+  if (!rawPath) return "https://placehold.co/150?text=No+Image";
+
+  if (rawPath.startsWith("http")) {
+    return rawPath;
+  }
+
+  let cleanPath = rawPath.trim().replace(/^\//, "");
+
+  if (cleanPath.startsWith("public/storage/")) {
+    cleanPath = cleanPath.substring(15);
+  } else if (cleanPath.startsWith("storage/")) {
+    cleanPath = cleanPath.substring(8);
+  } else if (cleanPath.startsWith("app/public/")) {
+    cleanPath = cleanPath.substring(11);
+  }
+
+  return `https://campus-connect-api-0s3b.onrender.com/api/storage/${cleanPath}`;
+}
+
 const rows = computed(() =>
   store.state.foundItems.filter((i) => i.name.toLowerCase().includes(search.value.toLowerCase()))
 );
@@ -132,12 +157,18 @@ async function remove() {
   }
 }
 
+// 🛠️ FIXED: Added authorization interceptor config parameters to resolve 403 Forbidden drops
 async function markClaimed(item) {
   try {
-    await api.put(`/items/${item.id}`, { status: "Claimed" });
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const config = {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    };
+
+    await api.put(`/items/${item.id}`, { status: "Claimed" }, config);
     await store.fetchItems();
   } catch (err) {
-    alert(err.message || "Failed to update status.");
+    alert(err.response?.data?.message || err.message || "Failed to update status.");
   }
 }
 
@@ -189,7 +220,12 @@ async function rejectReport(id) {
       <h2 class="text-xl font-bold text-dark">Published Found Items</h2>
       <AdminTable :columns="columns" :rows="rows">
         <template #photo="{ row }">
-          <img :src="row.photo" :alt="row.name" class="h-12 w-16 rounded-md object-cover" />
+          <img 
+            :src="getCleanPhotoUrl(row)" 
+            :alt="row.name" 
+            class="h-12 w-16 rounded-md object-cover bg-gray-50 border border-gray-100" 
+            @error="(e) => e.target.src = 'https://placehold.co/150?text=No+Image'"
+          />
         </template>
         <template #status="{ row }"><StatusBadge :status="row.status" /></template>
         <template #actions="{ row }">
@@ -203,7 +239,6 @@ async function rejectReport(id) {
       </AdminTable>
     </section>
 
-    <!-- Add / Edit modal -->
     <Teleport to="body">
       <div v-if="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" @click.self="modal = false">
         <form class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-md bg-white p-6 shadow-soft" @submit.prevent="save">
