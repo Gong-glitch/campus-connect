@@ -8,7 +8,7 @@ const store = useStore();
 const { state } = store;
 const isLoading = ref(false);
 
-// 🟢 Triggers data fetch on page load
+// Triggers data fetch on page load
 onMounted(async () => {
   isLoading.value = true;
   try {
@@ -22,13 +22,9 @@ onMounted(async () => {
   }
 });
 
+// The backend already filters your claims securely, so we just display them all here
 const myClaims = computed(() => {
-  const currentUserId = state.session?.id;
-  return state.claims.filter(
-    (claim) =>
-      claim.user_id === currentUserId ||
-      claim.schoolId === state.session?.schoolId
-  );
+  return state.claims || [];
 });
 </script>
 
@@ -36,7 +32,7 @@ const myClaims = computed(() => {
   <AppNavbar role="user" />
 
   <main class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-
+    
     <section class="rounded-md bg-gradient-to-r from-primary to-secondary p-8 text-white shadow-soft">
       <h1 class="max-w-3xl text-4xl font-bold">My Filed Claims</h1>
       <p class="mt-3 max-w-2xl text-white/85">
@@ -63,7 +59,7 @@ const myClaims = computed(() => {
         <div class="space-y-2">
           <div class="flex justify-between items-start gap-2">
             <h3 class="font-bold text-xl text-dark">{{ claim.itemName }}</h3>
-
+            
             <span v-if="claim.status === 'Pending'" class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-1 rounded-md">
               <Clock class="h-3.5 w-3.5" /> Pending
             </span>
@@ -76,7 +72,7 @@ const myClaims = computed(() => {
           </div>
 
           <p class="text-xs text-muted">Submitted Date: <span class="font-semibold">{{ claim.date }}</span></p>
-
+          
           <div class="mt-3 text-sm bg-light p-3 rounded-md border text-dark">
             <span class="text-xs font-bold text-primary block mb-1 uppercase tracking-wider">Your Submitted Proof:</span>
             <p class="italic text-muted">"{{ claim.proof }}"</p>
