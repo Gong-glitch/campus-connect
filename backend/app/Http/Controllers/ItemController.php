@@ -87,8 +87,17 @@ class ItemController extends Controller
             return response()->json(['message' => 'Item not found.'], 404);
         }
 
-        // Admins may edit any item; regular users may only edit their own
-        if ($request->user()->role !== 'admin' && $item->user_id !== $request->user()->id) {
+        // 🛡️ BULLETPROOF ADMIN OVERRIDE CHECK
+        $user = $request->user();
+
+        // Handles standard roles, capitalized role values, or a boolean is_admin flag
+        $isAdmin = $user && (
+            (isset($user->role) && strtolower($user->role) === 'admin') || 
+            (isset($user->is_admin) && (bool)$user->is_admin === true)
+        );
+
+        // Allow access if they are verified as an admin OR if they own the item record
+        if (!$isAdmin && $item->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized to edit this item.'], 403);
         }
 
@@ -117,8 +126,14 @@ class ItemController extends Controller
             return response()->json(['message' => 'Item not found.'], 404);
         }
 
-        // Admins may delete any item; regular users may only delete their own
-        if ($request->user()->role !== 'admin' && $item->user_id !== $request->user()->id) {
+        // 🛡️ BULLETPROOF ADMIN OVERRIDE CHECK FOR DELETIONS
+        $user = $request->user();
+        $isAdmin = $user && (
+            (isset($user->role) && strtolower($user->role) === 'admin') || 
+            (isset($user->is_admin) && (bool)$user->is_admin === true)
+        );
+
+        if (!$isAdmin && $item->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized to delete this item.'], 403);
         }
 
