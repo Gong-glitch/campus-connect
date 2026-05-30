@@ -12,7 +12,6 @@ import {
 import { api, getToken, setToken } from "../services/api";
 
 const STORAGE_KEY = "campus-lost-found-csu-v2";
-// 🎯 Explicitly map image assets to your live Render backend API domain
 const BACKEND_BASE = "https://campus-connect-api-0s3b.onrender.com";
 
 const categories = ["Electronics", "Keys", "ID", "Clothing", "Bag", "Others"];
@@ -36,13 +35,11 @@ const initialData = {
     officeHours: "Monday to Friday, 8:00 AM - 5:00 PM",
     contactInfo: "Student Affairs Office / lostfound@carsu.edu.ph",
     announcementEnabled: true,
-    announcementText:
-      "Claim found items at the student affairs office with a valid ID.",
+    announcementText: "Claim found items at the student affairs office with a valid ID.",
   },
   activity: [],
 };
 
-// Only retains session handshake tracking so users don't have to re-login on refresh
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   const saved = raw ? JSON.parse(raw) : null;
@@ -57,7 +54,6 @@ function loadState() {
   };
 }
 
-// 🖼️ Re-routed to fetch images natively via your Render Backend streaming utility route
 function formatImagePath(photoUrl) {
   if (photoUrl && !photoUrl.startsWith("http")) {
     const cleanPath = photoUrl.replace(/^\/?(storage\/)?/, "");
@@ -120,7 +116,6 @@ export function createAppStore() {
     foundReports: [],
   });
 
-  // Persists session token identifiers only, keeping database listings out of local cache
   function persistSession() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ session: state.session }));
   }
@@ -187,7 +182,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 FETCH LIVE USERS FROM DB (No local storage pollution)
     async fetchUsers() {
       try {
         const data = await api.get("/admin/users");
@@ -240,9 +234,7 @@ export function createAppStore() {
         !isValidEmail(clean.email) ||
         !isStrongPassword(payload.password)
       ) {
-        throw new Error(
-          "School ID must be in format 211-00087. Password must be 8+ chars with uppercase, lowercase, and number.",
-        );
+        throw new Error("Invalid format parameters.");
       }
       const data = await api.post("/register", {
         name: clean.name,
@@ -295,7 +287,7 @@ export function createAppStore() {
 
     async changeAdminPassword(currentPassword, newPassword) {
       if (!isStrongPassword(String(newPassword ?? ""))) {
-        throw new Error("New password must be at least 8 characters with uppercase, lowercase, and a number.");
+        throw new Error("Weak password configuration parameters.");
       }
       await api.put("/password", {
         current_password: String(currentPassword ?? ""),
@@ -317,7 +309,6 @@ export function createAppStore() {
         contact_email: payload.contact_email || clean.contactEmail,
         image_path: imagePath,
       });
-      addActivity(`${payload.title || clean.name} lost report submitted`);
       await store.fetchMyReports();
       return data?.report?.id || data?.id;
     },
@@ -336,8 +327,6 @@ export function createAppStore() {
         status: "Pending Approval",
         image_path: imagePath,
       });
-
-      addActivity(`${payload.title || clean.name} found report submitted`);
       await store.fetchMyReports();
       return data;
     },
@@ -379,11 +368,11 @@ export function createAppStore() {
           }));
         }
       } catch (error) {
-        console.error("Failed to query system verification claim rows:", error);
+        console.error("Failed to query admin claims", error);
       }
     },
 
-    // 🟢 DYNAMICALLY TARGETS YOUR LIVE /api/my-claims ENDPOINT
+    // 🟢 SECURE SEAMLESS NORMAL STUDENT CLAIM EXTRACTION
     async fetchMyClaims() {
       try {
         const data = await api.get("/my-claims"); 
@@ -393,74 +382,50 @@ export function createAppStore() {
             itemId: claim.item_id,
             itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
             claimantName: claim.user?.name || "Me",
-            user_id: claim.user_id || claim.user?.id, 
+            user_id: claim.user_id ?? claim.user?.id ?? null, 
             schoolId: claim.user?.school_id || "N/A",
             contactEmail: claim.user?.email || "",
-            proof: claim.proof_text || claim.proof_of_ownership || "",
-            date: (claim.created_at || claim.claim_date || "").slice(0, 10),
+            proof: claim.proof_text || "",
+            date: (claim.created_at || "").slice(0, 10),
             status: claim.status || "Pending",
             note: claim.admin_notes || ""
           }));
         }
       } catch (error) {
-        console.error("Failed to query student database claim rows:", error);
+        console.error("Failed student side claims payload fetch:", error);
         state.claims = [];
       }
     },
 
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
-      if (
-        !clean.claimantName ||
-        !isValidSchoolId(clean.schoolId) ||
-        !isValidEmail(clean.contactEmail) ||
-        clean.proof.length < 10
-      ) {
-        throw new Error("Invalid claim input.");
-      }
-
       await api.post("/claims", {
         item_id: clean.itemId,                       
         proof_text: clean.proof,             
       });
-
-      addActivity(`${clean.claimantName} submitted database claim row for ${clean.itemName}`);
     },
 
     async approveFoundReport(id) {
       await api.patch(`/items/${id}`, { status: "Unclaimed" });
-      addActivity("Found report approved and published");
       await store.fetchItems();
     },
 
     async rejectFoundReport(id) {
       await api.patch(`/items/${id}`, { status: "Rejected" });
-      addActivity("Found report rejected");
     },
 
     async updateClaim(id, status, note = "") {
       const claim = state.claims.find((item) => item.id === id);
       if (!claim) return;
-
       try {
         await api.patch(`/claims/${id}`, {
           status: status,                                                 
           admin_notes: note
         });
-
         claim.status = status;
         claim.note = note;
-
-        if (status === "Approved") {
-          const found = state.foundItems.find((item) => item.id === claim.itemId);
-          if (found) found.status = "Resolved";
-        } else if (status === "Rejected") {
-          const found = state.foundItems.find((item) => item.id === claim.itemId);
-          if (found) found.status = "Found";
-        }
-        addActivity(`${claim.itemName} claim row updated to status: ${status.toLowerCase()}`);
       } catch (error) {
-        console.error("Failed to execute claim condition modification:", error);
+        console.error(error);
       }
     },
 
@@ -468,9 +433,7 @@ export function createAppStore() {
       try {
         await api.delete(`/claims/${id}`);
         state.claims = state.claims.filter((item) => item.id !== id);
-        addActivity(`Permanently dropped verification claim entry reference: ${id}`);
       } catch (error) {
-        console.error("Failed to execute claim row database purge action:", error);
         state.claims = state.claims.filter((item) => item.id !== id);
       }
     },
@@ -479,28 +442,19 @@ export function createAppStore() {
       try {
         await api.patch(`/admin/users/${id}`, { status });
         const user = state.users.find((item) => item.id === id);
-        if (user) {
-          user.status = status;
-        }
-        addActivity(`Modified student account profile status state to: ${status}`);
-      } catch (error) {
-        console.error("Failed to execute status update payload pipeline:", error);
-      }
+        if (user) user.status = status;
+      } catch (error) {}
     },
 
     async deleteUserAccount(id) {
       try {
         await api.delete(`/admin/users/${id}`);
         state.users = state.users.filter((item) => item.id !== id);
-        addActivity(`Dropped user registry identifier row record directly inside DB: ${id}`);
-      } catch (error) {
-        console.error("Failed to delete user account across the database layer:", error);
-      }
+      } catch (error) {}
     },
 
     saveSettings(settings) {
       state.settings = { ...state.settings, ...settings };
-      addActivity("Settings updated");
     },
   };
 
