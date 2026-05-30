@@ -1,11 +1,26 @@
 <script setup>
-import { computed } from "vue";
-import AppNavbar from "../../components/shared/AppNavbar.vue"; // 🚀 Fixed to match your exact navbar path
+import { computed, onMounted, ref } from "vue";
+import AppNavbar from "../../components/shared/AppNavbar.vue"; 
 import { useStore } from "../../composables/useStore";
 import { Clock, CheckCircle, XCircle, Inbox } from "lucide-vue-next";
 
 const store = useStore();
 const { state } = store;
+const isLoading = ref(false);
+
+// 🚀 THE MISSING TRIGGER: This forces the browser to pull your data!
+onMounted(async () => {
+  isLoading.value = true;
+  try {
+    if (store.fetchMyClaims) {
+      await store.fetchMyClaims();
+    }
+  } catch (error) {
+    console.error("Failed to fetch claims:", error);
+  } finally {
+    isLoading.value = false;
+  }
+});
 
 // Filter rows in the claims table belonging only to the currently logged-in student
 const myClaims = computed(() => {
@@ -22,7 +37,7 @@ const myClaims = computed(() => {
   <AppNavbar role="user" />
 
   <main class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-    
+
     <section class="rounded-md bg-gradient-to-r from-primary to-secondary p-8 text-white shadow-soft">
       <h1 class="max-w-3xl text-4xl font-bold">My Filed Claims</h1>
       <p class="mt-3 max-w-2xl text-white/85">
@@ -30,7 +45,11 @@ const myClaims = computed(() => {
       </p>
     </section>
 
-    <div v-if="myClaims.length === 0" class="text-center py-12 rounded-md border bg-white shadow-soft">
+    <div v-if="isLoading" class="text-center py-12 bg-white rounded-md border shadow-soft animate-pulse text-muted font-medium">
+      Fetching your submitted claims from the database...
+    </div>
+
+    <div v-else-if="myClaims.length === 0" class="text-center py-12 rounded-md border bg-white shadow-soft">
       <Inbox class="h-12 w-12 mx-auto text-primary mb-2" />
       <h3 class="font-bold text-dark text-xl">No claims filed yet</h3>
       <p class="text-sm text-muted mt-1">When you request a found item from the browser, it will appear here.</p>
@@ -45,7 +64,7 @@ const myClaims = computed(() => {
         <div class="space-y-2">
           <div class="flex justify-between items-start gap-2">
             <h3 class="font-bold text-xl text-dark">{{ claim.itemName }}</h3>
-            
+
             <span v-if="claim.status === 'Pending'" class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-1 rounded-md">
               <Clock class="h-3.5 w-3.5" /> Pending
             </span>
@@ -58,7 +77,7 @@ const myClaims = computed(() => {
           </div>
 
           <p class="text-xs text-muted">Submitted Date: <span class="font-semibold">{{ claim.date }}</span></p>
-          
+
           <div class="mt-3 text-sm bg-light p-3 rounded-md border text-dark">
             <span class="text-xs font-bold text-primary block mb-1 uppercase tracking-wider">Your Submitted Proof:</span>
             <p class="italic text-muted">"{{ claim.proof }}"</p>

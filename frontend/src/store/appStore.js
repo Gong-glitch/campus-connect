@@ -12,7 +12,6 @@ import {
 import { api, getToken, setToken } from "../services/api";
 
 const STORAGE_KEY = "campus-lost-found-csu-v2";
-// 🎯 Explicitly map image assets to your live Render backend API domain
 const BACKEND_BASE = "https://campus-connect-api-0s3b.onrender.com";
 
 const categories = ["Electronics", "Keys", "ID", "Clothing", "Bag", "Others"];
@@ -42,7 +41,6 @@ const initialData = {
   activity: [],
 };
 
-// Only retains session handshake tracking so users don't have to re-login on refresh
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   const saved = raw ? JSON.parse(raw) : null;
@@ -57,7 +55,6 @@ function loadState() {
   };
 }
 
-// 🖼️ Re-routed to fetch images natively via your Render Backend streaming utility route
 function formatImagePath(photoUrl) {
   if (photoUrl && !photoUrl.startsWith("http")) {
     const cleanPath = photoUrl.replace(/^\/?(storage\/)?/, "");
@@ -120,7 +117,6 @@ export function createAppStore() {
     foundReports: [],
   });
 
-  // Persists session token identifiers only, keeping database listings out of local cache
   function persistSession() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ session: state.session }));
   }
@@ -187,7 +183,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 FETCH LIVE USERS FROM DB (No local storage pollution)
     async fetchUsers() {
       try {
         const data = await api.get("/admin/users");
@@ -383,6 +378,30 @@ export function createAppStore() {
       }
     },
 
+    // 🟢 MISSING FUNCTION INJECTED HERE:
+    async fetchMyClaims() {
+      try {
+        const data = await api.get("/my-claims");
+        if (Array.isArray(data)) {
+          state.claims = data.map(claim => ({
+            id: claim.id,
+            itemId: claim.item_id,
+            itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
+            claimantName: "Me",
+            schoolId: state.session?.schoolId || "N/A",
+            contactEmail: state.session?.email || "",
+            proof: claim.proof_text || claim.proof_of_ownership || "",
+            date: (claim.created_at || claim.claim_date || "").slice(0, 10),
+            status: claim.status || "Pending",
+            note: claim.admin_notes || "",
+            user_id: claim.user_id || state.session?.id
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to query my personal verification claim rows:", error);
+      }
+    },
+
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       if (
@@ -419,7 +438,7 @@ export function createAppStore() {
 
       try {
         await api.patch(`/claims/${id}`, {
-          status: status,                                 
+          status: status,                                                 
           admin_notes: note
         });
 
@@ -439,7 +458,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 REAL DELETE CLAIM ACTION (Removes item from UI state immediately)
     async deleteClaim(id) {
       try {
         await api.delete(`/claims/${id}`);
@@ -451,7 +469,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 REAL USER STATUS MODIFY ACTION
     async updateUserStatus(id, status) {
       try {
         await api.patch(`/admin/users/${id}`, { status });
@@ -465,7 +482,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 REAL USER PURGE ACTION
     async deleteUserAccount(id) {
       try {
         await api.delete(`/admin/users/${id}`);
