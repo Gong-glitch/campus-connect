@@ -75,6 +75,38 @@ function mapItem(raw) {
   };
 }
 
+function mapLostReport(raw) {
+  return {
+    id: raw.id,
+    name: raw.title ?? raw.name ?? "",
+    category: raw.category ?? "",
+    location: raw.location ?? "",
+    date: raw.date_lost ?? (raw.created_at ?? "").slice(0, 10),
+    description: raw.description ?? "",
+    photo: formatImagePath(raw.image_path) || "",
+    status: raw.status ?? "Open",
+    contactEmail: raw.contact_email ?? "",
+    reportedBy: raw.user?.name ?? "",
+    user_id: raw.user_id ?? raw.user?.id ?? null
+  };
+}
+
+function mapFoundReport(raw) {
+  return {
+    id: raw.id,
+    name: raw.title ?? raw.name ?? "",
+    category: raw.category ?? "",
+    location: raw.location ?? "",
+    date: raw.found_date || raw.date_lost || (raw.created_at ?? "").slice(0, 10),
+    description: raw.description ?? "",
+    photo: formatImagePath(raw.image_path) || "",
+    status: raw.status ?? "Pending Approval",
+    contactEmail: raw.contact_email ?? "",
+    reportedBy: raw.user?.name ?? "",
+    user_id: raw.user_id ?? raw.user?.id ?? null
+  };
+}
+
 export function createAppStore() {
   const state = reactive({
     ...loadState(),
@@ -137,6 +169,8 @@ export function createAppStore() {
       setToken(null);
       state.session = null;
       state.claims = [];
+      state.lostReports = [];
+      state.foundReports = [];
       localStorage.removeItem(STORAGE_KEY);
       window.location.href = "/login";
     },
@@ -148,7 +182,25 @@ export function createAppStore() {
       } catch (_) {}
     },
 
-    // 🟢 ADMIN: Fetches system-wide database claims with relationships mapped out
+    // 🟢 UPDATED: Pulls personal student history logs directly from database routes
+    async fetchMyReports() {
+      try {
+        const lostRaw = await api.get("/my-lost-reports");
+        state.lostReports = Array.isArray(lostRaw) ? lostRaw.map(mapLostReport) : [];
+      } catch (err) {
+        console.error("Failed to sync my-lost-reports registry entries:", err);
+        state.lostReports = [];
+      }
+
+      try {
+        const foundRaw = await api.get("/my-found-reports");
+        state.foundReports = Array.isArray(foundRaw) ? foundRaw.map(mapFoundReport) : [];
+      } catch (err) {
+        console.error("Failed to sync my-found-reports registry entries:", err);
+        state.foundReports = [];
+      }
+    },
+
     async fetchAdminClaims() {
       try {
         const data = await api.get("/admin/claims");
@@ -166,11 +218,10 @@ export function createAppStore() {
           }));
         }
       } catch (error) {
-        console.error("Failed admin claims sync:", error);
+        console.error(error);
       }
     },
 
-    // 🟢 STUDENT: Fetches the logged-in student's claims
     async fetchMyClaims() {
       try {
         const data = await api.get("/my-claims"); 
@@ -180,6 +231,7 @@ export function createAppStore() {
             itemId: claim.item_id,
             itemName: claim.item?.title || claim.item?.name || "Unknown Item",
             claimantName: "Me",
+            user_id: claim.user_id ?? claim.user?.id ?? null,
             schoolId: state.session?.schoolId || "N/A",
             proof: claim.proof_text || "",
             date: (claim.created_at || "").slice(0, 10),
@@ -188,39 +240,17 @@ export function createAppStore() {
           }));
         }
       } catch (error) {
-        console.error("Failed student claims sync:", error);
+        console.error(error);
         state.claims = [];
       }
     },
 
-    // 🟢 SUBMIT CLAIM FORM PIPELINE
     async submitClaim(payload) {
       await api.post("/claims", {
         item_id: payload.itemId,                       
         proof_text: payload.proof,             
       });
-      await this.fetchItems();
-    },
-
-    async updateClaim(id, status, note = "") {
-      try {
-        await api.patch(`/claims/${id}`, {
-          status: status,                                                 
-          admin_notes: note
-        });
-        await this.fetchAdminClaims();
-      } catch (error) {
-        console.error("Error updating claim:", error);
-      }
-    },
-
-    async deleteClaim(id) {
-      try {
-        await api.delete(`/claims/${id}`);
-        state.claims = state.claims.filter((item) => item.id !== id);
-      } catch (error) {
-        console.error("Error deleting claim:", error);
-      }
+      await this.fetchMyClaims();
     }
   };
 

@@ -15,7 +15,7 @@ onMounted(async () => {
     isLoading.value = true;
     await store.fetchAdminClaims();
   } catch (err) {
-    console.error("Admin error fetching claims database stack:", err);
+    console.error("Admin dashboard network failure processing mapping logs:", err);
   } finally {
     isLoading.value = false;
   }
@@ -25,13 +25,13 @@ const columns = [
   { key: "claimantName", label: "Claimant Name" },
   { key: "schoolId",     label: "School ID" },
   { key: "itemName",     label: "Item Claimed" },
-  { key: "proof",        label: "Proof Provided" },
-  { key: "date",         label: "Submission Date" },
-  { key: "status",       label: "Status State" }
+  { key: "proof",        label: "Proof Details" },
+  { key: "date",         label: "Logged On" },
+  { key: "status",       label: "Status" }
 ];
 
 async function approve(id) {
-  if (confirm("Approve this claim and mark the asset as Resolved?")) {
+  if (confirm("Approve claim request and mark item as resolved across database?")) {
     await store.updateClaim(id, "Approved");
   }
 }
@@ -43,7 +43,7 @@ async function rejectSubmit() {
 }
 
 async function deleteRow(id) {
-  if (confirm("Permanently drop this log entry record from the system?")) {
+  if (confirm("Permanently drop this log entry tracking record?")) {
     await store.deleteClaim(id);
   }
 }
@@ -54,9 +54,9 @@ async function deleteRow(id) {
 
   <main class="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between border-b pb-3">
-      <h1 class="text-3xl font-bold text-dark">Claims Management Dashboard</h1>
-      <span v-if="isLoading" class="text-xs text-primary animate-pulse bg-primary/10 px-3 py-1 rounded font-medium">
-        Syncing Database Rows...
+      <h1 class="text-3xl font-bold text-dark">Claims Management Panel</h1>
+      <span v-if="isLoading" class="text-xs bg-primary/10 text-primary animate-pulse px-3 py-1 rounded font-medium">
+        Syncing Global Records...
       </span>
     </div>
 
@@ -99,14 +99,14 @@ async function deleteRow(id) {
 
     <div v-if="rejecting" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-xs">
       <form class="w-full max-w-md rounded-md bg-white p-6 shadow-xl border flex flex-col gap-3" @submit.prevent="rejectSubmit">
-        <h2 class="text-xl font-bold text-dark">Specify Rejection Reason</h2>
-        <p class="text-xs text-muted">Rejecting request for item <span class="font-bold text-dark">{{ rejecting.itemName }}</span> submitted by <span class="font-bold text-dark">{{ rejecting.claimantName }}</span>.</p>
+        <h2 class="text-xl font-bold text-dark">Rejection Processing</h2>
+        <p class="text-xs text-muted">Item: <span class="font-bold text-dark">{{ rejecting.itemName }}</span> | Claimant: <span class="font-bold text-dark">{{ rejecting.claimantName }}</span></p>
 
-        <textarea v-model="note" class="field min-h-24 text-sm mt-1" placeholder="Provide note explaining decision to student..." required />
+        <textarea v-model="note" class="field min-h-24 text-sm mt-1" placeholder="Type reason explaining why this verification failed matching properties..." required />
 
         <div class="flex justify-end gap-2 mt-2">
           <button class="btn-secondary text-xs" type="button" @click="rejecting = null">Cancel</button>
-          <button class="bg-rose-600 text-white font-semibold text-xs px-4 py-2 rounded shadow hover:bg-rose-700" type="submit">Confirm Refusal</button>
+          <button class="bg-rose-600 text-white font-semibold text-xs px-4 py-2 rounded shadow hover:bg-rose-700" type="submit">Confirm Rejection</button>
         </div>
       </form>
     </div>
