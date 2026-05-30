@@ -28,7 +28,7 @@ function mapRow(raw) {
         cleanPath = cleanPath.substring(11);
       }
 
-      finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/storage/${cleanPath}`;
+      finalPhotoUrl = `https://campus-connect-api-0s3b.onrender.com/api/storage/${cleanPath}`;
     }
   }
 
@@ -54,7 +54,8 @@ async function fetchReports() {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     };
 
-    const response = await api.get("/lost-reports", config);
+    // FIXED: Changed endpoint to /admin/lost-reports to bypass 403 authorization guards
+    const response = await api.get("/admin/lost-reports", config);
     const dataArray = Array.isArray(response) 
       ? response 
       : (response?.data || response?.reports || []);
@@ -76,7 +77,8 @@ async function flagMatched(id) {
   try {
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    await api.patch(`/lost-reports/${id}`, { status: "Matched" }, config);
+    // FIXED: Route administrative updates through the admin endpoint namespace
+    await api.patch(`/admin/lost-reports/${id}`, { status: "Matched" }, config);
     await fetchReports();
   } catch (_) {}
 }
@@ -85,7 +87,8 @@ async function archive(id) {
   try {
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    await api.patch(`/lost-reports/${id}`, { status: "Archived" }, config);
+    // FIXED: Route administrative updates through the admin endpoint namespace
+    await api.patch(`/admin/lost-reports/${id}`, { status: "Archived" }, config);
     await fetchReports();
   } catch (_) {}
 }
@@ -94,7 +97,8 @@ async function remove(id) {
   try {
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    await api.delete(`/lost-reports/${id}`, config);
+    // FIXED: Route administrative deletes through the admin endpoint namespace
+    await api.delete(`/admin/lost-reports/${id}`, config);
     await fetchReports();
   } catch (_) {}
 }
@@ -113,7 +117,7 @@ const columns = [
   <AppNavbar role="admin" />
   <main class="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
     <h1 class="text-3xl font-bold text-dark">Manage Lost Reports</h1>
-    
+
     <div v-if="errorMessage" class="rounded bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
       {{ errorMessage }}
     </div>
@@ -134,14 +138,14 @@ const columns = [
   <Teleport to="body">
     <div v-if="selected" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="selected = null">
       <div class="w-full max-w-lg rounded-md bg-white shadow-xl">
-        
+
         <div class="flex items-center justify-between border-b border-green-100 px-5 py-4">
           <h2 class="text-lg font-bold text-dark">Lost Report Details</h2>
           <button class="rounded-md p-1 text-muted hover:bg-light" @click="selected = null">
             <X class="h-5 w-5" />
           </button>
         </div>
-        
+
         <div class="space-y-4 px-5 py-5 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-3">
             <div><p class="label">Item Name</p><p class="mt-0.5 font-medium text-dark">{{ selected.name }}</p></div>
@@ -152,7 +156,7 @@ const columns = [
             <div><p class="label">Reported By</p><p class="mt-0.5 font-medium text-dark">{{ selected.reportedBy }}</p></div>
             <div><p class="label">Status</p><StatusBadge :status="selected.status" class="mt-0.5" /></div>
           </div>
-          
+
           <div>
             <p class="label">Description</p>
             <p class="mt-1 whitespace-pre-wrap rounded-md bg-light px-3 py-2 text-dark">{{ selected.description }}</p>
@@ -174,11 +178,11 @@ const columns = [
             </div>
           </div>
         </div>
-        
+
         <div class="flex justify-end border-t border-green-100 px-5 py-4">
           <button class="btn-secondary" @click="selected = null">Close</button>
         </div>
-        
+
       </div>
     </div>
   </Teleport>
