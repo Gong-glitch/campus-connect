@@ -13,7 +13,7 @@ const errorMessage = ref("");
 // 🎯 ENDPOINT CONFIGURATION
 // If your backend throws a 404, change this string to match your exact Laravel route group.
 // Common options: "/admin/reports", "/reports", "/admin/items"
-const ENDPOINT = "/admin/reports"; 
+  const ENDPOINT = "/lost-reports";
 
 function mapRow(raw) {
   let rawPath = raw.image_path ?? raw.photo ?? raw.image ?? null;
