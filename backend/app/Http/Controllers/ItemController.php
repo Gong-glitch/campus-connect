@@ -87,13 +87,6 @@ class ItemController extends Controller
             return response()->json(['message' => 'Item not found.'], 404);
         }
 
-        // 🩺 TEMPORARY DIAGNOSTIC DUMP LINE
-        // This stops execution and returns live debug info directly into your browser tools response panel.
-        return response()->json([
-            'debug_user' => $request->user(),
-            'debug_headers' => $request->header('Authorization'),
-        ], 200);
-
         // 🛡️ BULLETPROOF ADMIN OVERRIDE CHECK
         $user = $request->user();
 

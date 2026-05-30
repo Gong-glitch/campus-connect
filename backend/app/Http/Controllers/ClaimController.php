@@ -8,9 +8,6 @@ use Illuminate\Http\Request;
 
 class ClaimController extends Controller
 {
-    /**
-     * Helper method to verify admin credentials across multiple structural properties.
-     */
     private function checkIsAdmin(Request $request)
     {
         $user = $request->user();
@@ -20,9 +17,6 @@ class ClaimController extends Controller
         );
     }
 
-    /**
-     * Student: Log a claim verification request against an item.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -62,9 +56,6 @@ class ClaimController extends Controller
         ], 201);
     }
 
-    /**
-     * Student: Retrieve logged personal claim listings.
-     */
     public function myClaims(Request $request)
     {
         $claims = Claim::with('item')
@@ -75,9 +66,6 @@ class ClaimController extends Controller
         return response()->json($claims, 200);
     }
 
-    /**
-     * Admin: Index all submitted claims across the system.
-     */
     public function index(Request $request)
     {
         if (!$this->checkIsAdmin($request)) {
@@ -91,9 +79,6 @@ class ClaimController extends Controller
         return response()->json($claims, 200);
     }
 
-    /**
-     * Admin: Process updates, approving or rejecting student property claims.
-     */
     public function updateStatus(Request $request, $id)
     {
         if (!$this->checkIsAdmin($request)) {
@@ -131,9 +116,6 @@ class ClaimController extends Controller
         ], 200);
     }
 
-    /**
-     * Admin: Permanently delete a claim entry from the system database.
-     */
     public function destroy(Request $request, $id)
     {
         if (!$this->checkIsAdmin($request)) {
