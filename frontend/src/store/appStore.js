@@ -383,6 +383,31 @@ export function createAppStore() {
       }
     },
 
+    // 🟢 DYNAMICALLY TARGETS YOUR LIVE /api/my-claims ENDPOINT
+    async fetchMyClaims() {
+      try {
+        const data = await api.get("/my-claims"); 
+        if (Array.isArray(data)) {
+          state.claims = data.map(claim => ({
+            id: claim.id,
+            itemId: claim.item_id,
+            itemName: claim.item?.title || claim.item?.name || "Unknown Asset",
+            claimantName: claim.user?.name || "Me",
+            user_id: claim.user_id || claim.user?.id, 
+            schoolId: claim.user?.school_id || "N/A",
+            contactEmail: claim.user?.email || "",
+            proof: claim.proof_text || claim.proof_of_ownership || "",
+            date: (claim.created_at || claim.claim_date || "").slice(0, 10),
+            status: claim.status || "Pending",
+            note: claim.admin_notes || ""
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to query student database claim rows:", error);
+        state.claims = [];
+      }
+    },
+
     async submitClaim(payload) {
       const clean = sanitizeClaimPayload(payload);
       if (
@@ -419,7 +444,7 @@ export function createAppStore() {
 
       try {
         await api.patch(`/claims/${id}`, {
-          status: status,                                 
+          status: status,                                                 
           admin_notes: note
         });
 
@@ -439,7 +464,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 REAL DELETE CLAIM ACTION (Removes item from UI state immediately)
     async deleteClaim(id) {
       try {
         await api.delete(`/claims/${id}`);
@@ -451,7 +475,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 REAL USER STATUS MODIFY ACTION
     async updateUserStatus(id, status) {
       try {
         await api.patch(`/admin/users/${id}`, { status });
@@ -465,7 +488,6 @@ export function createAppStore() {
       }
     },
 
-    // 🟢 REAL USER PURGE ACTION
     async deleteUserAccount(id) {
       try {
         await api.delete(`/admin/users/${id}`);
