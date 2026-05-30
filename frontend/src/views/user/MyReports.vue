@@ -21,6 +21,36 @@ const activeReports = computed(() => {
     : store.state.foundReports;
 });
 
+// 🖼️ MULTI-RESOURCE IMAGE STREAM PIPELINE
+// Extracts raw paths from any key structure and maps it to your Render storage route
+function getCleanPhotoUrl(report) {
+  if (!report) return "https://placehold.co/150?text=No+Image";
+
+  // Check every possible property key Laravel might pass back
+  let rawPath = report.image_path ?? report.photo ?? report.image ?? null;
+  if (!rawPath) return "https://placehold.co/150?text=No+Image";
+
+  // If it's already an absolute web address, return it as-is
+  if (rawPath.startsWith("http")) {
+    return rawPath;
+  }
+
+  // Sanitize trailing spaces and leading slashes
+  let cleanPath = rawPath.trim().replace(/^\//, "");
+
+  // Clear away nested folder prefixes if they are embedded in the string
+  if (cleanPath.startsWith("public/storage/")) {
+    cleanPath = cleanPath.substring(15);
+  } else if (cleanPath.startsWith("storage/")) {
+    cleanPath = cleanPath.substring(8);
+  } else if (cleanPath.startsWith("app/public/")) {
+    cleanPath = cleanPath.substring(11);
+  }
+
+  // Hook it directly into your live API stream route
+  return `https://campus-connect-api-0s3b.onrender.com/api/storage/${cleanPath}`;
+}
+
 // Leverage global store actions to load data cleanly
 async function loadDashboardData() {
   loading.value = true;
@@ -94,17 +124,18 @@ async function remove() {
       <article v-for="report in activeReports" :key="report.id" class="rounded-md bg-white p-5 shadow-soft">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-center gap-4">
+
             <img 
-              v-if="report.photo" 
-              :src="report.photo" 
+              :src="getCleanPhotoUrl(report)" 
               alt="Report image" 
-              class="h-16 w-16 rounded-md object-cover bg-gray-100"
+              class="h-16 w-16 rounded-md object-cover bg-gray-100 border border-gray-200"
               @error="(e) => e.target.src = 'https://placehold.co/150?text=No+Image'"
             />
+
             <div>
-              <h2 class="text-xl font-bold text-dark">{{ report.name || "Unnamed Item" }}</h2>
+              <h2 class="text-xl font-bold text-dark">{{ report.title || report.name || "Unnamed Item" }}</h2>
               <p class="text-sm text-muted">
-                {{ report.date || "No Date" }} / {{ report.location || "Unknown Location" }}
+                {{ report.date_lost || report.date || "No Date" }} / {{ report.location || "Unknown Location" }}
               </p>
             </div>
           </div>
